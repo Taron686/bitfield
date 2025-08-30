@@ -19,12 +19,24 @@ def typeColor(t):
         '6': 126,
         '7': 215,
     }
+    
+    # --- Fall 1: t ist eine Liste ---
+    if isinstance(t, list):
+        if len(t) == 3 and all(isinstance(x, int) and 0 <= x <= 255 for x in t):
+            r, g, b = t
+            return f"rgb({r}, {g}, {b})"
+        else:
+            # Fehlerhafte Liste -> Standardfarbe
+            return "rgb(229, 229, 229)"
+
+    # --- Fall 2: t ist ein Schlüssel im Dictionary ---
     t = str(t)
     if t in styles:
         r, g, b = colorsys.hls_to_rgb(styles[t] / 360, 0.9, 1)
-        return 'rgb({:.0f}, {:.0f}, {:.0f})'.format(r * 255, g * 255, b * 255)
-    else:
-        return 'rgb({:.0f}, {:.0f}, {:.0f})'.format(229, 229, 229)
+        return "rgb({:.0f}, {:.0f}, {:.0f})".format(r * 255, g * 255, b * 255)
+    
+    # --- Standardfarbe für alles andere ---
+    return "rgb(229, 229, 229)"
 
 
 class Renderer(object):
