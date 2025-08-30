@@ -86,7 +86,7 @@ class Renderer(object):
         self.legend = legend
 
     def get_total_bits(self, desc):
-        return sum(e['bits'] for e in desc)
+        return sum(e['bits'] for e in desc if 'bits' in e)
 
     def render(self, desc):
         self.bits = self.bits if self.bits is not None else self.get_total_bits(desc)
@@ -96,6 +96,8 @@ class Renderer(object):
         lsb = 0
         msb = self.bits - 1
         for e in desc:
+            if 'bits' not in e:
+                continue
             e['lsb'] = lsb
             lsb += e['bits']
             e['msb'] = lsb - 1
@@ -131,6 +133,9 @@ class Renderer(object):
         if self.legend:
             res.append(self.legend_items())
 
+        # draw array gaps (unknown length fields)
+        res.append(self.array_gaps(desc))
+
         for i in range(0, self.lanes):
             if self.hflip:
                 self.lane_index = i
@@ -163,6 +168,27 @@ class Renderer(object):
             }, key])
             x += name_padding
         return items
+
+    def array_gaps(self, desc):
+        step = self.hspace / self.mod
+        top_y = self.fontsize * 1.2
+        bottom_y = top_y + self.vlane * self.lanes
+        res = ['g', {'stroke': 'black', 'stroke-width': self.stroke_width, 'fill': '#ccc'}]
+        for e in desc:
+            if isinstance(e, dict) and 'array' in e:
+                arr = e['array']
+                if not isinstance(arr, list) or len(arr) < 2:
+                    continue
+                start = arr[0]
+                end = arr[-1]
+                x1 = start * step
+                x2 = end * step
+                width = step / 2
+                pts = f"{x1},{top_y} {x1+width},{top_y} {x2+width},{bottom_y} {x2},{bottom_y}"
+                res.append(['polygon', {'points': pts}])
+                res.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
+                res.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2+width, 'y2': bottom_y}])
+        return res
 
     def lane(self, desc):
         if self.compact:
@@ -219,7 +245,7 @@ class Renderer(object):
                 res.append(self.vline(self.vlane, rpos * hbit + self.stroke_width / 2))
             if bitm == 0:
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
-            elif any(e['lsb'] == bit for e in desc):
+            elif any('lsb' in e and e['lsb'] == bit for e in desc):
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
             else:
                 res.append(self.vline((self.vlane / 8),
@@ -240,6 +266,8 @@ class Renderer(object):
         blanks = ['g', {'transform': t(0, 0)}]
 
         for e in desc:
+            if 'bits' not in e:
+                continue
             lsbm = 0
             msbm = self.mod - 1
             lsb = self.lane_index * self.mod
