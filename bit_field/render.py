@@ -86,7 +86,16 @@ class Renderer(object):
         self.legend = legend
 
     def get_total_bits(self, desc):
-        return sum(e['bits'] for e in desc if 'bits' in e)
+        lsb = 0
+        for e in desc:
+            if 'array' in e:
+                # array descriptors specify the bit index where
+                # known fields resume, so advance directly
+                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb = end
+            elif 'bits' in e:
+                lsb += e['bits']
+        return lsb
 
     def render(self, desc):
         self.bits = self.bits if self.bits is not None else self.get_total_bits(desc)
@@ -96,6 +105,10 @@ class Renderer(object):
         lsb = 0
         msb = self.bits - 1
         for e in desc:
+            if 'array' in e:
+                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb = end
+                continue
             if 'bits' not in e:
                 continue
             e['lsb'] = lsb
@@ -171,18 +184,22 @@ class Renderer(object):
 
     def array_gaps(self, desc):
         step = self.hspace / self.mod
-        top_y = self.fontsize * 1.2
-        bottom_y = top_y + self.vlane * self.lanes
+        base_y = self.fontsize * 1.2
         res = ['g', {}]
+        bit_pos = 0
         for e in desc:
+            if 'bits' in e:
+                bit_pos += e['bits']
+                continue
             if isinstance(e, dict) and 'array' in e:
-                arr = e['array']
-                if not isinstance(arr, list) or len(arr) < 2:
-                    continue
-                start = arr[0]
-                end = arr[-1]
-                x1 = start * step
-                x2 = end * step
+                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                start = bit_pos
+                start_lane = start // self.mod
+                end_lane = (end - 1) // self.mod if end > 0 else 0
+                x1 = (start % self.mod) * step
+                x2 = (end % self.mod) * step
+                top_y = base_y + self.vlane * start_lane
+                bottom_y = base_y + self.vlane * (end_lane + 1)
                 width = step / 2
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2+width},{bottom_y} {x2},{bottom_y}"
                 color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
@@ -190,7 +207,19 @@ class Renderer(object):
                 grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
                 grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
                 grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2+width, 'y2': bottom_y}])
+                if 'name' in e:
+                    mid_x = (x1 + x2 + width) / 2
+                    mid_y = (top_y + bottom_y) / 2 + self.fontsize / 2
+                    grp.append(['text', {
+                        'x': mid_x,
+                        'y': mid_y,
+                        'font-size': self.fontsize,
+                        'font-family': self.fontfamily,
+                        'font-weight': self.fontweight,
+                        'text-anchor': 'middle'
+                    }, e['name']])
                 res.append(grp)
+                bit_pos = end
         return res
 
     def lane(self, desc):
