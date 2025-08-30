@@ -173,7 +173,7 @@ class Renderer(object):
         step = self.hspace / self.mod
         top_y = self.fontsize * 1.2
         bottom_y = top_y + self.vlane * self.lanes
-        res = ['g', {'stroke': 'black', 'stroke-width': self.stroke_width, 'fill': '#ccc'}]
+        res = ['g', {}]
         for e in desc:
             if isinstance(e, dict) and 'array' in e:
                 arr = e['array']
@@ -185,9 +185,12 @@ class Renderer(object):
                 x2 = end * step
                 width = step / 2
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2+width},{bottom_y} {x2},{bottom_y}"
-                res.append(['polygon', {'points': pts}])
-                res.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
-                res.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2+width, 'y2': bottom_y}])
+                color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
+                grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
+                grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
+                grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
+                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2+width, 'y2': bottom_y}])
+                res.append(grp)
         return res
 
     def lane(self, desc):
