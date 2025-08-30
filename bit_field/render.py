@@ -90,10 +90,9 @@ class Renderer(object):
         lsb = 0
         for e in desc:
             if 'array' in e:
-                # array descriptors specify the bit index where
-                # known fields resume, so advance directly
-                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
-                lsb = end
+                # numeric array descriptors specify a gap length
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb += length
             elif 'bits' in e:
                 lsb += e['bits']
         return lsb
@@ -108,8 +107,8 @@ class Renderer(object):
         msb = self.total_bits - 1
         for e in desc:
             if 'array' in e:
-                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
-                lsb = end
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb += length
                 continue
             if 'bits' not in e:
                 continue
@@ -194,8 +193,9 @@ class Renderer(object):
                 bit_pos += e['bits']
                 continue
             if isinstance(e, dict) and 'array' in e:
-                end = e['array'][-1] if isinstance(e['array'], list) else e['array']
                 start = bit_pos
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                end = start + length
                 start_lane = start // self.mod
                 end_lane = (end - 1) // self.mod if end > 0 else 0
                 x1 = (start % self.mod) * step
