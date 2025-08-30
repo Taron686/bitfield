@@ -43,8 +43,8 @@ class Renderer(object):
     def __init__(self,
                  vspace=80,
                  hspace=640,
-                 lanes=2,
-                 bits=None,
+                 bits=32,
+                 lanes=None,
                  fontsize=14,
                  fontfamily='sans-serif',
                  fontweight='normal',
@@ -61,10 +61,10 @@ class Renderer(object):
         if hspace <= 39:
             raise ValueError(
                 'hspace must be greater than 39, got {}.'.format(hspace))
-        if lanes <= 0:
+        if lanes is not None and lanes <= 0:
             raise ValueError(
                 'lanes must be greater than 0, got {}.'.format(lanes))
-        if bits is not None and bits <= 4:
+        if bits <= 4:
             raise ValueError(
                 'bits must be greater than 4, got {}.'.format(bits))
         if fontsize <= 5:
@@ -72,8 +72,9 @@ class Renderer(object):
                 'fontsize must be greater than 5, got {}.'.format(fontsize))
         self.vspace = vspace
         self.hspace = hspace
-        self.lanes = lanes
-        self.bits = bits
+        self.bits = bits  # bits per lane
+        self.lanes = lanes  # computed in render if None
+        self.total_bits = None
         self.fontsize = fontsize
         self.fontfamily = fontfamily
         self.fontweight = fontweight
@@ -98,12 +99,13 @@ class Renderer(object):
         return lsb
 
     def render(self, desc):
-        self.bits = self.bits if self.bits is not None else self.get_total_bits(desc)
-
-        mod = (self.bits + self.lanes - 1) // self.lanes
+        self.total_bits = self.get_total_bits(desc)
+        if self.lanes is None:
+            self.lanes = (self.total_bits + self.bits - 1) // self.bits
+        mod = self.bits
         self.mod = mod
         lsb = 0
-        msb = self.bits - 1
+        msb = self.total_bits - 1
         for e in desc:
             if 'array' in e:
                 end = e['array'][-1] if isinstance(e['array'], list) else e['array']
@@ -253,7 +255,7 @@ class Renderer(object):
 
         skip_count = 0
         if self.uneven and self.lanes > 1 and self.lane_index == self.lanes - 1:
-            skip_count = self.mod - self.bits % self.mod
+            skip_count = self.mod - self.total_bits % self.mod
             if skip_count == self.mod:
                 skip_count = 0
 
@@ -269,7 +271,7 @@ class Renderer(object):
         for bit_pos in range(self.mod):
             bitm = (bit_pos if self.vflip else self.mod - bit_pos - 1)
             bit = self.lane_index * self.mod + bitm
-            if bit >= self.bits:
+            if bit >= self.total_bits:
                 continue
             rpos = bit_pos + 1 if self.vflip else bit_pos
             lpos = bit_pos if self.vflip else bit_pos + 1
