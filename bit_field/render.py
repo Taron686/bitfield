@@ -200,9 +200,11 @@ class Renderer(object):
                 end_lane = (end - 1) // self.mod if end > 0 else 0
                 x1 = (start % self.mod) * step
                 x2 = (end % self.mod) * step
+                width = step / 2
+                if x2 == x1 and end > start:
+                    x2 = self.hspace - width
                 top_y = base_y + self.vlane * start_lane
                 bottom_y = base_y + self.vlane * (end_lane + 1)
-                width = step / 2
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2+width},{bottom_y} {x2},{bottom_y}"
                 color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
                 grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
