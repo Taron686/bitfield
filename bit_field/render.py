@@ -198,22 +198,26 @@ class Renderer(object):
                 end = start + length
                 start_lane = start // self.mod
                 end_lane = (end - 1) // self.mod if end > 0 else 0
-                x1 = (start % self.mod) * step
-                x2 = (end % self.mod) * step
+                x1_raw = (start % self.mod) * step
+                x2_raw = (end % self.mod) * step
                 width = step / 2
-                if x2 == x1 and end > start:
-                    x2 = self.hspace - width
-                margin = self.vlane * 0.1
-                top_y = base_y + self.vlane * start_lane + margin
-                bottom_y = base_y + self.vlane * (end_lane + 1) - margin
-                pts = f"{x1},{top_y} {x1+width},{top_y} {x2+width},{bottom_y} {x2},{bottom_y}"
+                margin = step * 0.1
+                top_y = base_y + self.vlane * start_lane
+                bottom_y = base_y + self.vlane * (end_lane + 1)
+                if x2_raw == 0 and end > start:
+                    x2_outer = self.hspace - margin
+                else:
+                    x2_outer = x2_raw - margin
+                x1 = x1_raw + margin
+                x2 = x2_outer - width
+                pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
                 color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
                 grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
                 grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
                 grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
-                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2+width, 'y2': bottom_y}])
+                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
                 if 'name' in e:
-                    mid_x = (x1 + x2 + width) / 2
+                    mid_x = (x1 + x2_outer) / 2
                     mid_y = (top_y + bottom_y) / 2 + self.fontsize / 2
                     grp.append(['text', {
                         'x': mid_x,

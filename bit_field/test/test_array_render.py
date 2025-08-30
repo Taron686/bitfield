@@ -33,9 +33,14 @@ def test_array_polygon_type():
     top_y = coords[0][1]
     bottom_y = coords[2][1]
     base_y = renderer.fontsize * 1.2
-    margin = renderer.vlane * 0.1
-    assert top_y == pytest.approx(base_y + margin)
-    assert bottom_y == pytest.approx(base_y + renderer.vlane - margin)
+    assert top_y == pytest.approx(base_y)
+    assert bottom_y == pytest.approx(base_y + renderer.vlane)
+    step = renderer.hspace / renderer.mod
+    margin = step * 0.1
+    x1 = coords[0][0]
+    x2 = coords[2][0]
+    assert x1 == pytest.approx(step * 8 + margin)
+    assert x2 == pytest.approx(renderer.hspace - margin)
 
 
 def test_array_full_lane_wedge():
