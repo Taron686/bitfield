@@ -187,9 +187,9 @@ class Renderer(object):
                          'id': 'arrow',
                          'markerWidth': 10,
                          'markerHeight': 10,
-                         'refX': 5,
+                         'refX': 10,
                          'refY': 5,
-                         'orient': 'auto',
+                         'orient': 'auto-start-reverse',
                          'markerUnits': 'strokeWidth'
                      },
                       ['path', {
