@@ -30,7 +30,7 @@ html = jsonml_stringify(jsonml)
 
 ### Vertical lane labels
 
-Add a rotated label spanning multiple lanes either by passing a
+Add a horizontal label spanning multiple lanes either by passing a
 `label_lines` configuration or by appending an object with a
 `"label_lines"` key to the descriptor list. Newline characters (`\n`)
 in the label text create multiple lines:
