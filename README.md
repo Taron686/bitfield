@@ -52,6 +52,11 @@ input        : input JSON filename - must be specified always
 --vflip      : vertical flip
 --trim       : horizontal space available for a single character
 --uneven:    : uneven lanes
+--label-lines: text for a vertical label across lanes
+--label-fontsize: font size for label text
+--label-start-line: starting line index for label
+--label-end-line: ending line index for label
+--label-layout: place label on 'left' or 'right'
 
 --beautify   : use xml beautifier
 

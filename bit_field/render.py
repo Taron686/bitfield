@@ -54,7 +54,8 @@ class Renderer(object):
                  strokewidth=1,
                  trim=None,
                  uneven=False,
-                 legend=None):
+                 legend=None,
+                 label_lines=None):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -85,6 +86,7 @@ class Renderer(object):
         self.trim_char_width = trim
         self.uneven = uneven
         self.legend = legend
+        self.label_lines = label_lines
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -119,6 +121,9 @@ class Renderer(object):
             e['msbm'] = e['msb'] % mod
             if 'type' not in e:
                 e['type'] = None
+
+        if self.label_lines is not None:
+            self._validate_label_lines()
 
         max_attr_count = 0
         for e in desc:
@@ -157,7 +162,58 @@ class Renderer(object):
                 self.lane_index = self.lanes - i - 1
             self.index = i
             res.append(self.lane(desc))
+        if self.label_lines is not None:
+            res.append(self._label_lines_element())
         return res
+
+    def _validate_label_lines(self):
+        required = ['label_lines', 'font_size', 'start_line', 'end_line', 'layout']
+        for key in required:
+            if key not in self.label_lines:
+                raise ValueError('label_lines missing required key: {}'.format(key))
+        start = self.label_lines['start_line']
+        end = self.label_lines['end_line']
+        if not (isinstance(start, int) and isinstance(end, int)):
+            raise ValueError('label_lines start_line and end_line must be integers')
+        if start < 0 or end < 0:
+            raise ValueError('label_lines start_line and end_line must be non-negative')
+        if end >= self.lanes or start >= self.lanes:
+            raise ValueError('label_lines start_line/end_line exceed number of lanes')
+        if end - start < 3:
+            raise ValueError('label_lines must cover at least 3 lines')
+        layout = self.label_lines['layout']
+        if layout not in ('left', 'right'):
+            raise ValueError('label_lines layout must be "left" or "right"')
+
+    def _label_lines_element(self):
+        cfg = self.label_lines
+        text = cfg['label_lines']
+        font_size = cfg.get('font_size', self.fontsize)
+        start = cfg['start_line']
+        end = cfg['end_line']
+        layout = cfg['layout']
+        base_y = self.fontsize * 1.2
+        if self.legend:
+            base_y += self.fontsize * 1.2
+        top_y = base_y + self.vlane * start
+        bottom_y = base_y + self.vlane * (end + 1)
+        mid_y = (top_y + bottom_y) / 2
+        if layout == 'left':
+            x = 0
+            anchor = 'end'
+        else:
+            x = self.hspace
+            anchor = 'start'
+        return ['text', {
+            'x': x,
+            'y': mid_y,
+            'font-size': font_size,
+            'font-family': self.fontfamily,
+            'font-weight': self.fontweight,
+            'text-anchor': anchor,
+            'dominant-baseline': 'middle',
+            'transform': 'rotate(90,{},{})'.format(x, mid_y)
+        }, text]
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]

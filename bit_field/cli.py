@@ -34,6 +34,11 @@ def bit_field_cli():
     parser.add_argument('--trim', help='trim long bitfield names', type=float)
     parser.add_argument('--uneven', help='uneven lanes', action='store_true')
     parser.add_argument('--legend', help='legend item', action='append', nargs=2, metavar=('NAME', 'TYPE'))
+    parser.add_argument('--label-lines', help='vertical label text')
+    parser.add_argument('--label-fontsize', type=int)
+    parser.add_argument('--label-start-line', type=int)
+    parser.add_argument('--label-end-line', type=int)
+    parser.add_argument('--label-layout', choices=['left', 'right'], default='left')
     args = parser.parse_args()
 
     # default is json5, unless forced with --(no-)json5
@@ -49,6 +54,15 @@ def bit_field_cli():
 
     with open(args.input, 'r') as f:
         data = json.load(f)
+        label_cfg = None
+        if args.label_lines is not None:
+            label_cfg = {
+                'label_lines': args.label_lines,
+                'font_size': args.label_fontsize if args.label_fontsize is not None else args.fontsize,
+                'start_line': args.label_start_line,
+                'end_line': args.label_end_line,
+                'layout': args.label_layout,
+            }
         res = render(data,
                      hspace=args.hspace,
                      vspace=args.vspace,
@@ -63,7 +77,8 @@ def bit_field_cli():
                      strokewidth=args.strokewidth,
                      trim=args.trim,
                      uneven=args.uneven,
-                     legend={key: value for key, value in args.legend} if args.legend else None)
+                     legend={key: value for key, value in args.legend} if args.legend else None,
+                     label_lines=label_cfg)
 
     res = jsonml_stringify(res)
     if args.beautify:
