@@ -156,9 +156,13 @@ class Renderer(object):
 
         left_margin = right_margin = 0
         self.label_margin = 0
+        self.label_gap = 0
+        self.label_width = 0
         if self.label_lines is not None:
-            font_size = self.label_lines.get('font_size', self.fontsize)
-            self.label_margin = font_size * 2
+            cage_width = self.hspace / self.mod
+            self.label_gap = cage_width / 2
+            self.label_width = cage_width
+            self.label_margin = self.label_gap + self.label_width
             if self.label_lines['layout'] == 'left':
                 left_margin = self.label_margin
             else:
@@ -223,38 +227,54 @@ class Renderer(object):
         top_y = base_y + self.vlane * start
         bottom_y = base_y + self.vlane * (end + 1)
         mid_y = (top_y + bottom_y) / 2
+        gap = self.label_gap
+        width = self.label_width
         if layout == 'left':
-            x = -self.label_margin / 2
+            x = -(gap + width / 2)
+            left = x - width / 2
+            right = x + width / 2
         else:
-            x = self.hspace + self.label_margin / 2
+            x = self.hspace + gap + width / 2
+            left = x - width / 2
+            right = x + width / 2
 
         lines = text.split('\n')
-        if len(lines) == 1:
-            return ['text', {
-                'x': x,
-                'y': mid_y,
-                'font-size': font_size,
-                'font-family': self.fontfamily,
-                'font-weight': self.fontweight,
-                'text-anchor': 'middle',
-                'dominant-baseline': 'middle',
-                'transform': 'rotate(90,{},{})'.format(x, mid_y)
-            }, text]
-
-        line_height = font_size * 1.2
-        start_y = mid_y - line_height * (len(lines) - 1) / 2
-        attrs = {
+        text_attrs = {
+            'x': x,
+            'y': mid_y,
             'font-size': font_size,
             'font-family': self.fontfamily,
             'font-weight': self.fontweight,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
-            'transform': 'rotate(90,{},{})'.format(x, mid_y)
+            'transform': 'rotate(90,{},{})'.format(x, mid_y),
+            'textLength': width,
+            'lengthAdjust': 'spacingAndGlyphs'
         }
-        elements = ['text', attrs]
-        for i, line in enumerate(lines):
-            elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
-        return elements
+        if len(lines) == 1:
+            text_element = ['text', text_attrs, text]
+        else:
+            line_height = font_size * 1.2
+            start_y = mid_y - line_height * (len(lines) - 1) / 2
+            attrs = text_attrs.copy()
+            del attrs['x']
+            del attrs['y']
+            elements = ['text', attrs]
+            for i, line in enumerate(lines):
+                elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
+            text_element = elements
+
+        bracket = ['g', {
+            'stroke': 'black',
+            'stroke-width': self.stroke_width,
+            'fill': 'none'
+        },
+            ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
+            ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
+            ['line', {'x1': left, 'y1': top_y, 'x2': left, 'y2': bottom_y}],
+            ['line', {'x1': right, 'y1': top_y, 'x2': right, 'y2': bottom_y}]
+        ]
+        return ['g', {}, bracket, text_element]
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]
