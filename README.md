@@ -30,20 +30,23 @@ html = jsonml_stringify(jsonml)
 
 ### Vertical lane labels
 
-Add a horizontal label spanning multiple lanes either by passing a
-`label_lines` configuration or by appending an object with a
-`"label_lines"` key to the descriptor list. Newline characters (`\n`)
-in the label text create multiple lines:
+Add horizontal labels spanning multiple lanes either by passing a list of
+`label_lines` configurations or by appending objects with a `"label_lines"`
+key to the descriptor list. Newline characters (`\n`) in the label text
+create multiple lines:
 
 ```python
 reg = [
   {"bits": 8, "name": "data"},
-  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
 ]
-render(reg, bits=8)
+labels = [
+  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+  {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"},
+]
+render(reg, bits=8, label_lines=labels)
 ```
 
-The label is drawn outside the bitfield on the requested side.  It is
+Each label is drawn outside the bitfield on the requested side.  Labels are
 rendered only if `end_line - start_line >= 2`.
 
 ## CLI Usage
