@@ -227,16 +227,34 @@ class Renderer(object):
             x = -self.label_margin / 2
         else:
             x = self.hspace + self.label_margin / 2
-        return ['text', {
-            'x': x,
-            'y': mid_y,
+
+        lines = text.split('\n')
+        if len(lines) == 1:
+            return ['text', {
+                'x': x,
+                'y': mid_y,
+                'font-size': font_size,
+                'font-family': self.fontfamily,
+                'font-weight': self.fontweight,
+                'text-anchor': 'middle',
+                'dominant-baseline': 'middle',
+                'transform': 'rotate(90,{},{})'.format(x, mid_y)
+            }, text]
+
+        line_height = font_size * 1.2
+        start_y = mid_y - line_height * (len(lines) - 1) / 2
+        attrs = {
             'font-size': font_size,
             'font-family': self.fontfamily,
             'font-weight': self.fontweight,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
             'transform': 'rotate(90,{},{})'.format(x, mid_y)
-        }, text]
+        }
+        elements = ['text', attrs]
+        for i, line in enumerate(lines):
+            elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
+        return elements
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]

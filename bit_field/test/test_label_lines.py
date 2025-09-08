@@ -8,7 +8,7 @@ def _make_reg(bits=8, lanes=8):
 
 def _find_text(node, text):
     if isinstance(node, list):
-        if node and node[0] == "text" and text in node[2:]:
+        if node and node[0] in ("text", "tspan") and text in node[2:]:
             return node
         for child in node[1:]:
             res = _find_text(child, text)
@@ -41,6 +41,16 @@ def test_label_lines_draws_text_outside_left():
     root_attrs = root[1]
     view_min_x = float(root_attrs["viewbox"].split()[0])
     assert view_min_x < 0
+
+
+def test_label_lines_multiline():
+    reg = _make_reg()
+    cfg = {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"}
+    res = render(reg, bits=8, label_lines=cfg)
+    node1 = _find_text(res, "Line1")
+    node2 = _find_text(res, "Line2")
+    assert node1 is not None
+    assert node2 is not None
 
 
 def test_label_lines_invalid_range():

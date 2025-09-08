@@ -32,12 +32,13 @@ html = jsonml_stringify(jsonml)
 
 Add a rotated label spanning multiple lanes either by passing a
 `label_lines` configuration or by appending an object with a
-`"label_lines"` key to the descriptor list:
+`"label_lines"` key to the descriptor list. Newline characters (`\n`)
+in the label text create multiple lines:
 
 ```python
 reg = [
   {"bits": 8, "name": "data"},
-  {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
 ]
 render(reg, bits=8)
 ```
