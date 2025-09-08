@@ -238,12 +238,12 @@ class Renderer(object):
             x = -(gap + width / 2)
             left = x - width / 2
             right = x + width / 2
-            angle = -90
+            angle = 0
         else:
             x = self.hspace + gap + width / 2
             left = x - width / 2
             right = x + width / 2
-            angle = 90
+            angle = 0
 
         half_cage = (right-left)/2
         lines = text.split('\n')
@@ -283,9 +283,8 @@ class Renderer(object):
         },
             ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
-            ['line', {'x1': left + half_cage, 'y1': top_y, 'x2': left + half_cage, 'y2': top_y2
+            ['line', {'x1': left + half_cage, 'y1': top_y, 'x2': left + half_cage, 'y2': bottom_y
                       }],
-            ['line', {'x1': left + half_cage, 'y1': bottom_y1, 'x2': left + half_cage, 'y2': bottom_y}]
         ]
 
         return ['g', {}, bracket, text_element]
