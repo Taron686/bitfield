@@ -14,6 +14,7 @@ def test_array_polygon_type():
     svg = jsonml_stringify(jsonml)
     assert '<polygon' in svg
     assert 'fill="#fff"' in svg
+    assert 'stroke="#000"' in svg
     assert f'stroke="{typeColor(4)}"' in svg
     assert 'gap' in svg
     assert renderer.lanes == 2
