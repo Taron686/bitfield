@@ -42,8 +42,8 @@ input        : input JSON filename - must be specified always
 --compact    : compact rendering mode
 --vspace     : vertical space - default 80
 --hspace     : horizontal space - default 640
---lanes      : rectangle lanes - default 2
---bits       : overall bitwidth - default 32
+--lanes      : rectangle lanes (computed if omitted)
+--bits       : bits per lane - default 32
 --fontfamily : - default sans-serif
 --fontweight : - default normal
 --fontsize   : - default 14

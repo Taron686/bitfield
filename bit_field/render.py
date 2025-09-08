@@ -43,8 +43,8 @@ class Renderer(object):
     def __init__(self,
                  vspace=80,
                  hspace=640,
-                 lanes=2,
-                 bits=None,
+                 bits=32,
+                 lanes=None,
                  fontsize=14,
                  fontfamily='sans-serif',
                  fontweight='normal',
@@ -61,10 +61,10 @@ class Renderer(object):
         if hspace <= 39:
             raise ValueError(
                 'hspace must be greater than 39, got {}.'.format(hspace))
-        if lanes <= 0:
+        if lanes is not None and lanes <= 0:
             raise ValueError(
                 'lanes must be greater than 0, got {}.'.format(lanes))
-        if bits is not None and bits <= 4:
+        if bits <= 4:
             raise ValueError(
                 'bits must be greater than 4, got {}.'.format(bits))
         if fontsize <= 5:
@@ -72,8 +72,9 @@ class Renderer(object):
                 'fontsize must be greater than 5, got {}.'.format(fontsize))
         self.vspace = vspace
         self.hspace = hspace
-        self.lanes = lanes
-        self.bits = bits
+        self.bits = bits  # bits per lane
+        self.lanes = lanes  # computed in render if None
+        self.total_bits = None
         self.fontsize = fontsize
         self.fontfamily = fontfamily
         self.fontweight = fontweight
@@ -86,16 +87,31 @@ class Renderer(object):
         self.legend = legend
 
     def get_total_bits(self, desc):
-        return sum(e['bits'] for e in desc)
+        lsb = 0
+        for e in desc:
+            if 'array' in e:
+                # numeric array descriptors specify a gap length
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb += length
+            elif 'bits' in e:
+                lsb += e['bits']
+        return lsb
 
     def render(self, desc):
-        self.bits = self.bits if self.bits is not None else self.get_total_bits(desc)
-
-        mod = (self.bits + self.lanes - 1) // self.lanes
+        self.total_bits = self.get_total_bits(desc)
+        if self.lanes is None:
+            self.lanes = (self.total_bits + self.bits - 1) // self.bits
+        mod = self.bits
         self.mod = mod
         lsb = 0
-        msb = self.bits - 1
+        msb = self.total_bits - 1
         for e in desc:
+            if 'array' in e:
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                lsb += length
+                continue
+            if 'bits' not in e:
+                continue
             e['lsb'] = lsb
             lsb += e['bits']
             e['msb'] = lsb - 1
@@ -131,6 +147,9 @@ class Renderer(object):
         if self.legend:
             res.append(self.legend_items())
 
+        # draw array gaps (unknown length fields)
+        res.append(self.array_gaps(desc))
+
         for i in range(0, self.lanes):
             if self.hflip:
                 self.lane_index = i
@@ -164,6 +183,54 @@ class Renderer(object):
             x += name_padding
         return items
 
+    def array_gaps(self, desc):
+        step = self.hspace / self.mod
+        base_y = self.fontsize * 1.2
+        res = ['g', {}]
+        bit_pos = 0
+        for e in desc:
+            if 'bits' in e:
+                bit_pos += e['bits']
+                continue
+            if isinstance(e, dict) and 'array' in e:
+                start = bit_pos
+                length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                end = start + length
+                start_lane = start // self.mod
+                end_lane = (end - 1) // self.mod if end > 0 else 0
+                x1_raw = (start % self.mod) * step
+                x2_raw = (end % self.mod) * step
+                width = step / 2
+                margin = step * 0.1
+                top_y = base_y + self.vlane * start_lane
+                bottom_y = base_y + self.vlane * (end_lane + 1)
+                if x2_raw == 0 and end > start:
+                    x2_outer = self.hspace - margin
+                else:
+                    x2_outer = x2_raw - margin
+                x1 = x1_raw + margin
+                x2 = x2_outer - width
+                pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
+                color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
+                grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
+                grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
+                grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
+                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
+                if 'name' in e:
+                    mid_x = (x1 + x2_outer) / 2
+                    mid_y = (top_y + bottom_y) / 2 + self.fontsize / 2
+                    grp.append(['text', {
+                        'x': mid_x,
+                        'y': mid_y,
+                        'font-size': self.fontsize,
+                        'font-family': self.fontfamily,
+                        'font-weight': self.fontweight,
+                        'text-anchor': 'middle'
+                    }, e['name']])
+                res.append(grp)
+                bit_pos = end
+        return res
+
     def lane(self, desc):
         if self.compact:
             if self.index > 0:
@@ -195,7 +262,7 @@ class Renderer(object):
 
         skip_count = 0
         if self.uneven and self.lanes > 1 and self.lane_index == self.lanes - 1:
-            skip_count = self.mod - self.bits % self.mod
+            skip_count = self.mod - self.total_bits % self.mod
             if skip_count == self.mod:
                 skip_count = 0
 
@@ -211,7 +278,7 @@ class Renderer(object):
         for bit_pos in range(self.mod):
             bitm = (bit_pos if self.vflip else self.mod - bit_pos - 1)
             bit = self.lane_index * self.mod + bitm
-            if bit >= self.bits:
+            if bit >= self.total_bits:
                 continue
             rpos = bit_pos + 1 if self.vflip else bit_pos
             lpos = bit_pos if self.vflip else bit_pos + 1
@@ -219,7 +286,7 @@ class Renderer(object):
                 res.append(self.vline(self.vlane, rpos * hbit + self.stroke_width / 2))
             if bitm == 0:
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
-            elif any(e['lsb'] == bit for e in desc):
+            elif any('lsb' in e and e['lsb'] == bit for e in desc):
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
             else:
                 res.append(self.vline((self.vlane / 8),
@@ -240,6 +307,8 @@ class Renderer(object):
         blanks = ['g', {'transform': t(0, 0)}]
 
         for e in desc:
+            if 'bits' not in e:
+                continue
             lsbm = 0
             msbm = self.mod - 1
             lsb = self.lane_index * self.mod
