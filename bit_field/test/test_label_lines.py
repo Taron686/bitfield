@@ -93,6 +93,25 @@ def test_label_lines_multiline():
     assert _find_line(res, 720, 720, top_y, bottom_y) is not None
 
 
+def test_multiple_label_lines():
+    reg = _make_reg()
+    cfgs = [
+        {"label_lines": "Demo1", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+        {"label_lines": "Demo2", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"},
+    ]
+    res = render(reg, bits=8, label_lines=cfgs)
+    node1 = _find_text(res, "Demo1")
+    node2 = _find_text(res, "Demo2")
+    assert node1 is not None
+    assert node2 is not None
+    top_y = 14 * 1.2
+    vlane = 80 - 14 * 1.2
+    top_y2 = top_y + vlane * 4
+    bottom_y2 = top_y + vlane * 8
+    assert _find_line(res, 720, 720, top_y, top_y + vlane * 4) is not None
+    assert _find_line(res, 720, 720, top_y2, bottom_y2) is not None
+
+
 def test_label_lines_invalid_range():
     reg = _make_reg()
     cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 8, "layout": "left"}

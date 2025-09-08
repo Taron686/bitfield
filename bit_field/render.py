@@ -86,7 +86,10 @@ class Renderer(object):
         self.trim_char_width = trim
         self.uneven = uneven
         self.legend = legend
-        self.label_lines = label_lines
+        if label_lines is not None and not isinstance(label_lines, list):
+            self.label_lines = [label_lines]
+        else:
+            self.label_lines = label_lines
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -100,30 +103,37 @@ class Renderer(object):
         return lsb
 
     def _extract_label_lines(self, desc):
-        if self.label_lines is None:
-            filtered = []
-            for e in desc:
-                if isinstance(e, dict) and 'label_lines' in e:
-                    self.label_lines = e
-                else:
-                    filtered.append(e)
-            return filtered
-        return [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
+        collected = []
+        filtered = []
+        for e in desc:
+            if isinstance(e, dict) and 'label_lines' in e:
+                collected.append(e)
+            else:
+                filtered.append(e)
+        if collected:
+            if self.label_lines is None:
+                self.label_lines = collected
+            else:
+                self.label_lines.extend(collected)
+        return filtered
 
     def _label_lines_margins(self):
-        cfg = self.label_lines
         self.cage_width = self.hspace / self.mod
         self.label_gap = self.cage_width / 2
         self.label_width = self.cage_width
-        font_size = cfg.get('font_size', self.fontsize)
-        lines = cfg['label_lines'].split('\n')
-        max_text_len = max((len(line) for line in lines), default=0)
-        text_length = max_text_len * font_size * 0.6
-        margin = self.label_width / 2 + 2 * self.label_gap + text_length
-        self.label_margin = margin
-        if cfg['layout'] == 'left':
-            return margin, 0
-        return 0, margin
+        left_margin = right_margin = 0
+        for cfg in self.label_lines:
+            font_size = cfg.get('font_size', self.fontsize)
+            lines = cfg['label_lines'].split('\n')
+            max_text_len = max((len(line) for line in lines), default=0)
+            text_length = max_text_len * font_size * 0.6
+            margin = self.label_width / 2 + 2 * self.label_gap + text_length
+            if cfg['layout'] == 'left':
+                left_margin = max(left_margin, margin)
+            else:
+                right_margin = max(right_margin, margin)
+        self.label_margin = max(left_margin, right_margin)
+        return left_margin, right_margin
 
     def render(self, desc):
         desc = self._extract_label_lines(desc)
@@ -220,30 +230,31 @@ class Renderer(object):
             self.index = i
             res.append(self.lane(desc))
         if self.label_lines is not None:
-            res.append(self._label_lines_element())
+            for cfg in self.label_lines:
+                res.append(self._label_lines_element(cfg))
         return res
 
     def _validate_label_lines(self):
         required = ['label_lines', 'font_size', 'start_line', 'end_line', 'layout']
-        for key in required:
-            if key not in self.label_lines:
-                raise ValueError('label_lines missing required key: {}'.format(key))
-        start = self.label_lines['start_line']
-        end = self.label_lines['end_line']
-        if not (isinstance(start, int) and isinstance(end, int)):
-            raise ValueError('label_lines start_line and end_line must be integers')
-        if start < 0 or end < 0:
-            raise ValueError('label_lines start_line and end_line must be non-negative')
-        if end >= self.lanes or start >= self.lanes:
-            raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 0:
-            raise ValueError('label_lines must cover at least 1 lines')
-        layout = self.label_lines['layout']
-        if layout not in ('left', 'right'):
-            raise ValueError('label_lines layout must be "left" or "right"')
+        for cfg in self.label_lines:
+            for key in required:
+                if key not in cfg:
+                    raise ValueError('label_lines missing required key: {}'.format(key))
+            start = cfg['start_line']
+            end = cfg['end_line']
+            if not (isinstance(start, int) and isinstance(end, int)):
+                raise ValueError('label_lines start_line and end_line must be integers')
+            if start < 0 or end < 0:
+                raise ValueError('label_lines start_line and end_line must be non-negative')
+            if end >= self.lanes or start >= self.lanes:
+                raise ValueError('label_lines start_line/end_line exceed number of lanes')
+            if end - start < 2:
+                raise ValueError('label_lines must cover at least 2 lines')
+            layout = cfg['layout']
+            if layout not in ('left', 'right'):
+                raise ValueError('label_lines layout must be "left" or "right"')
 
-    def _label_lines_element(self):
-        cfg = self.label_lines
+    def _label_lines_element(self, cfg):
         text = cfg['label_lines']
         font_size = cfg.get('font_size', self.fontsize)
         start = cfg['start_line']
