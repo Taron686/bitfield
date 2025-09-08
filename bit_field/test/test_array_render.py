@@ -13,23 +13,25 @@ def test_array_polygon_type():
     jsonml = renderer.render(reg)
     svg = jsonml_stringify(jsonml)
     assert '<polygon' in svg
-    assert 'fill="#fff"' in svg
     assert f'stroke="{typeColor(4)}"' in svg
     assert 'gap' in svg
     assert renderer.lanes == 2
 
-    def find_polygon(node):
+    def collect_polygons(node, polys):
         if isinstance(node, list):
             if node and node[0] == 'polygon':
-                return node[1]['points']
+                polys.append(node[1])
             for child in node[1:]:
-                pts = find_polygon(child)
-                if pts:
-                    return pts
-        return None
+                collect_polygons(child, polys)
 
-    pts = find_polygon(jsonml)
-    coords = [tuple(map(float, p.split(','))) for p in pts.split()]
+    polygons = []
+    collect_polygons(jsonml, polygons)
+    fills = [p.get('fill') for p in polygons]
+    assert '#fff' in fills
+    assert typeColor(4) in fills
+
+    white_poly = next(p for p in polygons if p.get('fill') == '#fff')
+    coords = [tuple(map(float, p.split(','))) for p in white_poly['points'].split()]
     top_y = coords[0][1]
     bottom_y = coords[2][1]
     base_y = renderer.fontsize * 1.2

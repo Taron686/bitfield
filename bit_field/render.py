@@ -213,6 +213,17 @@ class Renderer(object):
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
                 color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
                 grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
+                # fill the bounding box with the type color to avoid transparency
+                if e.get('type') is not None:
+                    left = min(x1, x2)
+                    right = max(x1 + width, x2_outer)
+                    rect = f"{left},{top_y} {right},{top_y} {right},{bottom_y} {left},{bottom_y}"
+                    grp.append(['polygon', {
+                        'points': rect,
+                        'fill': typeColor(e['type']),
+                        'stroke': 'none'
+                    }])
+                # white gap polygon on top
                 grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
                 grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
                 grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
