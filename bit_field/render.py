@@ -212,7 +212,7 @@ class Renderer(object):
             raise ValueError('label_lines start_line and end_line must be non-negative')
         if end >= self.lanes or start >= self.lanes:
             raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 1:
+        if end - start < 2:
             raise ValueError('label_lines must cover at least 2 lines')
         layout = self.label_lines['layout']
         if layout not in ('left', 'right'):
@@ -247,7 +247,8 @@ class Renderer(object):
 
         half_cage = (right-left)/2
         lines = text.split('\n')
-        text_length = width+(self.cage_width*(end-start)/2)
+        max_text_len = max((len(line) for line in lines), default=0)
+        text_length = max_text_len * font_size * 0.6
         text_attrs = {
             'x': x,
             'y': mid_y,
@@ -256,15 +257,12 @@ class Renderer(object):
             'font-weight': self.fontweight,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
-            'transform': 'rotate({},{},{})'.format(angle, x, mid_y),
-            'textLength': text_length,
-            'lengthAdjust': 'spacingAndGlyphs'
+            'transform': 'rotate({},{},{})'.format(angle, x, mid_y)
         }
         if len(lines) == 1:
+            text_attrs['textLength'] = text_length
+            text_attrs['lengthAdjust'] = 'spacingAndGlyphs'
             text_element = ['text', text_attrs, text]
-            y_height = text_length
-            top_y2 = mid_y-y_height/2-5
-            bottom_y1 = mid_y+y_height/2+5
         else:
             line_height = font_size * 1.2
             start_y = mid_y - line_height * (len(lines) - 1) / 2
@@ -274,12 +272,9 @@ class Renderer(object):
             elements = ['text', attrs]
             for i, line in enumerate(lines):
                 elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
-                y_height = start_y + line_height * i
-            
-            top_y2 = start_y - 5
-            bottom_y1 = y_height+5
-            
             text_element = elements
+        top_y2 = mid_y - text_length / 2 - 5
+        bottom_y1 = mid_y + text_length / 2 + 5
 
         bracket = ['g', {
             'stroke': 'black',
