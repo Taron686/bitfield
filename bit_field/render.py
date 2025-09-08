@@ -178,7 +178,7 @@ class Renderer(object):
             'xmlns': 'http://www.w3.org/2000/svg',
             'width': canvas_width,
             'height': height,
-            'viewbox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
+            'viewBox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
         }]
 
         if self.legend:
@@ -236,10 +236,12 @@ class Renderer(object):
             x = -(gap + width / 2)
             left = x - width / 2
             right = x + width / 2
+            angle = -90
         else:
             x = self.hspace + gap + width / 2
             left = x - width / 2
             right = x + width / 2
+            angle = 90
 
         lines = text.split('\n')
         text_attrs = {
@@ -250,7 +252,7 @@ class Renderer(object):
             'font-weight': self.fontweight,
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
-            'transform': 'rotate(90,{},{})'.format(x, mid_y),
+            'transform': 'rotate({},{},{})'.format(angle, x, mid_y),
             'textLength': width,
             'lengthAdjust': 'spacingAndGlyphs'
         }

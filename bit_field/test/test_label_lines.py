@@ -64,9 +64,10 @@ def test_label_lines_draws_text_outside_left():
     assert node is not None
     attrs = node[1]
     assert attrs["x"] == pytest.approx(-80)
+    assert "rotate(-90" in attrs.get("transform", "")
     root = res
     root_attrs = root[1]
-    view_min_x = float(root_attrs["viewbox"].split()[0])
+    view_min_x = float(root_attrs["viewBox"].split()[0])
     assert view_min_x == pytest.approx(-120)
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
