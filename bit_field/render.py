@@ -231,14 +231,12 @@ class Renderer(object):
         width = self.label_width
         if layout == 'left':
             x = -(gap + width / 2)
-            vline_x = -gap
-            hstart = 0
-            hend = -gap
+            left = x - width / 2
+            right = x + width / 2
         else:
             x = self.hspace + gap + width / 2
-            vline_x = self.hspace + gap
-            hstart = self.hspace
-            hend = self.hspace + gap
+            left = x - width / 2
+            right = x + width / 2
 
         lines = text.split('\n')
         text_attrs = {
@@ -271,9 +269,10 @@ class Renderer(object):
             'stroke-width': self.stroke_width,
             'fill': 'none'
         },
-            ['line', {'x1': hstart, 'y1': top_y, 'x2': hend, 'y2': top_y}],
-            ['line', {'x1': hstart, 'y1': bottom_y, 'x2': hend, 'y2': bottom_y}],
-            ['line', {'x1': vline_x, 'y1': top_y, 'x2': vline_x, 'y2': bottom_y}]
+            ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
+            ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
+            ['line', {'x1': left, 'y1': top_y, 'x2': left, 'y2': bottom_y}],
+            ['line', {'x1': right, 'y1': top_y, 'x2': right, 'y2': bottom_y}]
         ]
         return ['g', {}, bracket, text_element]
 

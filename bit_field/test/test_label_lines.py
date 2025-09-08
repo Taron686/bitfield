@@ -50,9 +50,10 @@ def test_label_lines_draws_text_outside_right():
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
-    assert _find_line(res, 640, 680, top_y, top_y) is not None
-    assert _find_line(res, 640, 680, bottom_y, bottom_y) is not None
+    assert _find_line(res, 680, 760, top_y, top_y) is not None
+    assert _find_line(res, 680, 760, bottom_y, bottom_y) is not None
     assert _find_line(res, 680, 680, top_y, bottom_y) is not None
+    assert _find_line(res, 760, 760, top_y, bottom_y) is not None
 
 
 def test_label_lines_draws_text_outside_left():
@@ -70,8 +71,9 @@ def test_label_lines_draws_text_outside_left():
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
-    assert _find_line(res, 0, -40, top_y, top_y) is not None
-    assert _find_line(res, 0, -40, bottom_y, bottom_y) is not None
+    assert _find_line(res, -120, -40, top_y, top_y) is not None
+    assert _find_line(res, -120, -40, bottom_y, bottom_y) is not None
+    assert _find_line(res, -120, -120, top_y, bottom_y) is not None
     assert _find_line(res, -40, -40, top_y, bottom_y) is not None
 
 
