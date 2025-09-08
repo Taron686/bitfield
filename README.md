@@ -1,14 +1,27 @@
-A Python3 port of the javascript [bit-field library](https://github.com/drom/bitfield/) by [Aliaksei Chapyzhenka](https://github.com/drom).
+# bit_field
 
-This package is also available as an extension for Sphinx: [sphinxcontrib-bitfield](https://github.com/Arth-ur/sphinxcontrib-bitfield).
+A Python 3 port of the JavaScript [bit-field library](https://github.com/drom/bitfield/) by [Aliaksei Chapyzhenka](https://github.com/drom).
+The renderer produces SVG diagrams from a simple JSON description and is also
+available as a Sphinx extension: [sphinxcontrib-bitfield](https://github.com/Arth-ur/sphinxcontrib-bitfield).
 
-## Install
+## Features
+
+* Render register/bit‑field layouts to SVG
+* Optional [JSON5](https://json5.org/) input support
+* Per-field types with predefined colours or explicit RGB values
+* Unknown-length gaps using `array` descriptors
+* Legends explaining field types
+* Per-bit attribute display and automatic name trimming
+* Vertical lane labels for grouping fields across lanes
+* Horizontal/vertical flipping, compact layout, and uneven lane widths
+
+## Installation
 
 ```sh
 pip install bit_field
 ```
 
-To install this package with JSON5 support:
+To install with JSON5 support:
 
 ```sh
 pip install bit_field[JSON5]
@@ -16,90 +29,120 @@ pip install bit_field[JSON5]
 
 ## Library usage
 
+### Basic rendering
+
 ```python
 from bit_field import render, jsonml_stringify
 
 reg = [
-  {'bits': 8, 'name': 'data'}
+    {"name": "IPO",   "bits": 8, "attr": "RO"},
+    {"bits": 7},
+    {"name": "BRK",   "bits": 5, "attr": [0b1011, "RW"], "type": 4},
+    {"name": "CPK",   "bits": 1, "type": [120, 180, 255]},  # custom colour
+    {"name": "Clear", "bits": 3},
+    {"array": 8, "type": 4, "name": "gap"},                  # unknown-length field
+    {"bits": 8},
 ]
 
-jsonml = render(reg, hspace=888)
-html = jsonml_stringify(jsonml)
+jsonml = render(reg, bits=16, legend={"Status": 2, "Control": 4})
+svg = jsonml_stringify(jsonml)
 # <svg...>
 ```
 
 ### Vertical lane labels
 
-Add horizontal labels spanning multiple lanes either by passing a list of
-`label_lines` configurations or by appending objects with a `"label_lines"`
-key to the descriptor list. Newline characters (`\n`) in the label text
-create multiple lines:
-
-```python
-reg = [
-  {"bits": 8, "name": "data"},
-]
-labels = [
-  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
-  {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"},
-]
-render(reg, bits=8, label_lines=labels)
-```
-
-Each label is drawn outside the bitfield on the requested side.  Labels are
-rendered only if `end_line - start_line >= 2`.
-
-## CLI Usage
-
-```sh
-bit_field [options] input > alpha.svg
-```
-
-### options
-
-```
-input        : input JSON filename - must be specified always
---input      : input JSON filename (kept for compatibility)
---compact    : compact rendering mode
---vspace     : vertical space - default 80
---hspace     : horizontal space - default 640
---lanes      : rectangle lanes (computed if omitted)
---bits       : bits per lane - default 32
---fontfamily : - default sans-serif
---fontweight : - default normal
---fontsize   : - default 14
---strokewidth: - default 1
---hflip      : horizontal flip
---vflip      : vertical flip
---trim       : horizontal space available for a single character
---uneven:    : uneven lanes
---label-lines: text for a vertical label across lanes
---label-fontsize: font size for label text
---label-start-line: starting line index for label
---label-end-line: ending line index for label
---label-layout: place label on 'left' or 'right'
-
---beautify   : use xml beautifier
-
---json5      : force json5 input format (need json5 python module)
---no-json5   : never use json5 input format
-```
-
-### alpha.json
+Add horizontal labels spanning multiple lanes by including objects with a
+`"label_lines"` key in your descriptor list. Newline characters (`\n`) create
+multiple lines:
 
 ```json
 [
-    { "name": "IPO",   "bits": 8, "attr": "RO" },
+  {"bits": 8, "name": "data"},
+  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+  {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"}
+]
+```
+
+Each label is drawn outside the bitfield on the requested side. Labels are
+rendered only if `end_line - start_line >= 1`.
+
+### Array gaps
+
+Use an `{"array": length}` descriptor to draw a wedge representing an
+unknown-length field or gap. The optional `type` and `name` keys colour and
+label the gap:
+
+```python
+reg = [
+  {"name": "start", "bits": 8},
+  {"array": 8, "type": 4, "name": "gap"},
+  {"name": "end", "bits": 8},
+]
+render(reg, bits=16)
+```
+
+### Legends
+
+Pass a mapping of legend names to field types to add a legend above the
+bitfield:
+
+```python
+legend = {"Status": 2, "Control": 4}
+render(reg, legend=legend)
+```
+
+The numbers refer to the `type` values used in the field descriptors and can
+also be RGB triplets `[r, g, b]`.
+
+## CLI usage
+
+```sh
+bit_field [options] input > out.svg
+```
+
+### Options
+
+```
+input                           input JSON filename (required)
+--input                         compatibility option
+--vspace VSPACE                 vertical space (default 80)
+--hspace HSPACE                 horizontal space (default 800)
+--lanes LANES                   rectangle lanes (computed if omitted)
+--bits BITS                     bits per lane (default 32)
+--fontfamily FONTFAMILY         font family (default sans-serif)
+--fontweight FONTWEIGHT         font weight (default normal)
+--fontsize FONTSIZE             font size (default 14)
+--strokewidth STROKEWIDTH       stroke width (default 1)
+--hflip                         horizontal flip
+--vflip                         vertical flip
+--compact                       compact rendering mode
+--trim TRIM                     trim long bitfield names
+--uneven                        uneven lanes
+--legend NAME TYPE              add legend item (repeatable)
+--beautify                      pretty-print SVG
+--json5                         force JSON5 input
+--no-json5                      disable JSON5 input
+```
+
+### Example JSON
+
+```json
+[
+    { "name": "IPO",   "bits": 8,  "attr": "RO" },
     {                  "bits": 7 },
-    { "name": "BRK",   "bits": 5, "attr": "RW", "type": 4 },
+    { "name": "BRK",   "bits": 5,  "attr": [11, "RO"], "type": 4 },
     { "name": "CPK",   "bits": 1 },
     { "name": "Clear", "bits": 3 },
     { "bits": 8 }
 ]
 ```
-### alpha.svg
 
-![Heat Sink](https://raw.githubusercontent.com/Arth-ur/bitfield/master/bit_field/test/alpha.svg?sanitize=true)
+Rendering with the CLI:
 
-### Licensing
+```sh
+bit_field alpha.json > alpha.svg
+```
+
+## Licensing
+
 This work is based on original work by [Aliaksei Chapyzhenka](https://github.com/drom) under the MIT license (see LICENSE-ORIGINAL).
