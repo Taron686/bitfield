@@ -44,6 +44,17 @@ def test_array_polygon_type():
     assert x1 == pytest.approx(step * 8 + margin)
     assert x2 == pytest.approx(renderer.hspace - margin)
 
+    color_poly = next(p for p in polygons if p.get('fill') == typeColor(4))
+    c_coords = [tuple(map(float, p.split(','))) for p in color_poly['points'].split()]
+    c_top = c_coords[0][1]
+    c_bottom = c_coords[2][1]
+    assert c_top == pytest.approx(base_y)
+    assert c_bottom == pytest.approx(base_y + renderer.vlane)
+    c_x1 = c_coords[0][0]
+    c_x2 = c_coords[2][0]
+    assert c_x1 == pytest.approx(step * 8)
+    assert c_x2 == pytest.approx(renderer.hspace)
+
 
 def test_array_full_lane_wedge():
     reg = [
