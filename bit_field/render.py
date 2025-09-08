@@ -54,7 +54,8 @@ class Renderer(object):
                  strokewidth=1,
                  trim=None,
                  uneven=False,
-                 legend=None):
+                 legend=None,
+                 label_lines=None):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -85,6 +86,7 @@ class Renderer(object):
         self.trim_char_width = trim
         self.uneven = uneven
         self.legend = legend
+        self.label_lines = label_lines
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -98,6 +100,18 @@ class Renderer(object):
         return lsb
 
     def render(self, desc):
+        # allow label_lines configuration within descriptor list
+        if self.label_lines is None:
+            filtered = []
+            for e in desc:
+                if isinstance(e, dict) and 'label_lines' in e:
+                    self.label_lines = e
+                else:
+                    filtered.append(e)
+            desc = filtered
+        else:
+            desc = [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
+
         self.total_bits = self.get_total_bits(desc)
         if self.lanes is None:
             self.lanes = (self.total_bits + self.bits - 1) // self.bits
@@ -120,6 +134,9 @@ class Renderer(object):
             if 'type' not in e:
                 e['type'] = None
 
+        if self.label_lines is not None:
+            self._validate_label_lines()
+
         max_attr_count = 0
         for e in desc:
             if 'attr' in e:
@@ -137,11 +154,24 @@ class Renderer(object):
         if self.legend:
             height += self.fontsize * 1.2
 
+        left_margin = right_margin = 0
+        self.label_margin = 0
+        if self.label_lines is not None:
+            font_size = self.label_lines.get('font_size', self.fontsize)
+            self.label_margin = font_size * 2
+            if self.label_lines['layout'] == 'left':
+                left_margin = self.label_margin
+            else:
+                right_margin = self.label_margin
+
+        canvas_width = self.hspace + left_margin + right_margin
+        view_min_x = -left_margin
+
         res = ['svg', {
             'xmlns': 'http://www.w3.org/2000/svg',
-            'width': self.hspace,
+            'width': canvas_width,
             'height': height,
-            'viewbox': ' '.join(str(x) for x in [0, 0, self.hspace, height])
+            'viewbox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
         }]
 
         if self.legend:
@@ -157,7 +187,56 @@ class Renderer(object):
                 self.lane_index = self.lanes - i - 1
             self.index = i
             res.append(self.lane(desc))
+        if self.label_lines is not None:
+            res.append(self._label_lines_element())
         return res
+
+    def _validate_label_lines(self):
+        required = ['label_lines', 'font_size', 'start_line', 'end_line', 'layout']
+        for key in required:
+            if key not in self.label_lines:
+                raise ValueError('label_lines missing required key: {}'.format(key))
+        start = self.label_lines['start_line']
+        end = self.label_lines['end_line']
+        if not (isinstance(start, int) and isinstance(end, int)):
+            raise ValueError('label_lines start_line and end_line must be integers')
+        if start < 0 or end < 0:
+            raise ValueError('label_lines start_line and end_line must be non-negative')
+        if end >= self.lanes or start >= self.lanes:
+            raise ValueError('label_lines start_line/end_line exceed number of lanes')
+        if end - start < 3:
+            raise ValueError('label_lines must cover at least 3 lines')
+        layout = self.label_lines['layout']
+        if layout not in ('left', 'right'):
+            raise ValueError('label_lines layout must be "left" or "right"')
+
+    def _label_lines_element(self):
+        cfg = self.label_lines
+        text = cfg['label_lines']
+        font_size = cfg.get('font_size', self.fontsize)
+        start = cfg['start_line']
+        end = cfg['end_line']
+        layout = cfg['layout']
+        base_y = self.fontsize * 1.2
+        if self.legend:
+            base_y += self.fontsize * 1.2
+        top_y = base_y + self.vlane * start
+        bottom_y = base_y + self.vlane * (end + 1)
+        mid_y = (top_y + bottom_y) / 2
+        if layout == 'left':
+            x = -self.label_margin / 2
+        else:
+            x = self.hspace + self.label_margin / 2
+        return ['text', {
+            'x': x,
+            'y': mid_y,
+            'font-size': font_size,
+            'font-family': self.fontfamily,
+            'font-weight': self.fontweight,
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            'transform': 'rotate(90,{},{})'.format(x, mid_y)
+        }, text]
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]

@@ -28,6 +28,23 @@ html = jsonml_stringify(jsonml)
 # <svg...>
 ```
 
+### Vertical lane labels
+
+Add a rotated label spanning multiple lanes either by passing a
+`label_lines` configuration or by appending an object with a
+`"label_lines"` key to the descriptor list:
+
+```python
+reg = [
+  {"bits": 8, "name": "data"},
+  {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+]
+render(reg, bits=8)
+```
+
+The label is drawn outside the bitfield on the requested side.  It is
+rendered only if `end_line - start_line >= 3`.
+
 ## CLI Usage
 
 ```sh
@@ -52,6 +69,11 @@ input        : input JSON filename - must be specified always
 --vflip      : vertical flip
 --trim       : horizontal space available for a single character
 --uneven:    : uneven lanes
+--label-lines: text for a vertical label across lanes
+--label-fontsize: font size for label text
+--label-start-line: starting line index for label
+--label-end-line: ending line index for label
+--label-layout: place label on 'left' or 'right'
 
 --beautify   : use xml beautifier
 
