@@ -96,14 +96,14 @@ def test_label_lines_invalid_range():
 
 def test_label_lines_too_short():
     reg = _make_reg()
-    cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 2, "layout": "left"}
+    cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 1, "layout": "left"}
     with pytest.raises(ValueError):
         render(reg, bits=8, label_lines=cfg)
 
 
 def test_label_lines_from_desc():
     reg = _make_reg()
-    reg.append({"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "left"})
+    reg.append({"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 2, "layout": "left"})
     res = render(reg, bits=8)
     node = _find_text(res, "Demo")
     assert node is not None
@@ -111,6 +111,6 @@ def test_label_lines_from_desc():
 
 def test_label_lines_from_desc_invalid():
     reg = _make_reg()
-    reg.append({"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 2, "layout": "right"})
+    reg.append({"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 1, "layout": "right"})
     with pytest.raises(ValueError):
         render(reg, bits=8)

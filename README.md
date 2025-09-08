@@ -44,7 +44,7 @@ render(reg, bits=8)
 ```
 
 The label is drawn outside the bitfield on the requested side.  It is
-rendered only if `end_line - start_line >= 3`.
+rendered only if `end_line - start_line >= 2`.
 
 ## CLI Usage
 

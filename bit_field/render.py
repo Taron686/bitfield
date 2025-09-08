@@ -99,8 +99,7 @@ class Renderer(object):
                 lsb += e['bits']
         return lsb
 
-    def render(self, desc):
-        # allow label_lines configuration within descriptor list
+    def _extract_label_lines(self, desc):
         if self.label_lines is None:
             filtered = []
             for e in desc:
@@ -108,9 +107,20 @@ class Renderer(object):
                     self.label_lines = e
                 else:
                     filtered.append(e)
-            desc = filtered
-        else:
-            desc = [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
+            return filtered
+        return [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
+
+    def _label_lines_margins(self):
+        cage_width = self.hspace / self.mod
+        self.label_gap = cage_width / 2
+        self.label_width = cage_width
+        self.label_margin = self.label_gap + self.label_width
+        if self.label_lines['layout'] == 'left':
+            return self.label_margin, 0
+        return 0, self.label_margin
+
+    def render(self, desc):
+        desc = self._extract_label_lines(desc)
 
         self.total_bits = self.get_total_bits(desc)
         if self.lanes is None:
@@ -159,14 +169,7 @@ class Renderer(object):
         self.label_gap = 0
         self.label_width = 0
         if self.label_lines is not None:
-            cage_width = self.hspace / self.mod
-            self.label_gap = cage_width / 2
-            self.label_width = cage_width
-            self.label_margin = self.label_gap + self.label_width
-            if self.label_lines['layout'] == 'left':
-                left_margin = self.label_margin
-            else:
-                right_margin = self.label_margin
+            left_margin, right_margin = self._label_lines_margins()
 
         canvas_width = self.hspace + left_margin + right_margin
         view_min_x = -left_margin
@@ -208,8 +211,8 @@ class Renderer(object):
             raise ValueError('label_lines start_line and end_line must be non-negative')
         if end >= self.lanes or start >= self.lanes:
             raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 3:
-            raise ValueError('label_lines must cover at least 3 lines')
+        if end - start < 2:
+            raise ValueError('label_lines must cover at least 2 lines')
         layout = self.label_lines['layout']
         if layout not in ('left', 'right'):
             raise ValueError('label_lines layout must be "left" or "right"')
