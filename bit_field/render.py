@@ -100,6 +100,18 @@ class Renderer(object):
         return lsb
 
     def render(self, desc):
+        # allow label_lines configuration within descriptor list
+        if self.label_lines is None:
+            filtered = []
+            for e in desc:
+                if isinstance(e, dict) and 'label_lines' in e:
+                    self.label_lines = e
+                else:
+                    filtered.append(e)
+            desc = filtered
+        else:
+            desc = [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
+
         self.total_bits = self.get_total_bits(desc)
         if self.lanes is None:
             self.lanes = (self.total_bits + self.bits - 1) // self.bits

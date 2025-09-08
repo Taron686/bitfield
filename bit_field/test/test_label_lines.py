@@ -1,9 +1,6 @@
 import pytest
 from .. import render
 
-import pytest
-from .. import render
-
 
 def _make_reg(bits=8, lanes=8):
     return [{"bits": bits}] * (bits * lanes // bits)
@@ -43,3 +40,18 @@ def test_label_lines_too_short():
     cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 2, "layout": "left"}
     with pytest.raises(ValueError):
         render(reg, bits=8, label_lines=cfg)
+
+
+def test_label_lines_from_desc():
+    reg = _make_reg()
+    reg.append({"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "left"})
+    res = render(reg, bits=8)
+    node = _find_text(res, "Demo")
+    assert node is not None
+
+
+def test_label_lines_from_desc_invalid():
+    reg = _make_reg()
+    reg.append({"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 2, "layout": "right"})
+    with pytest.raises(ValueError):
+        render(reg, bits=8)
