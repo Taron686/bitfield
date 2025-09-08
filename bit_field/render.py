@@ -188,6 +188,24 @@ class Renderer(object):
             'viewBox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
         }]
 
+        arrow_def = ['defs', {},
+                     ['marker', {
+                         'id': 'arrow',
+                         'markerWidth': 10,
+                         'markerHeight': 10,
+                         'refX': 10,
+                         'refY': 5,
+                         'orient': 'auto-start-reverse',
+                         'markerUnits': 'strokeWidth'
+                     },
+                      ['path', {
+                          'd': 'M0,0 L10,5 L0,10 Z',
+                          'fill': 'black'
+                      }]
+                     ]]
+
+        res.append(arrow_def)
+
         if self.legend:
             res.append(self.legend_items())
 
@@ -286,7 +304,14 @@ class Renderer(object):
         },
             ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
-            ['line', {'x1': x, 'y1': top_y, 'x2': x, 'y2': bottom_y}],
+            ['line', {
+                'x1': left + half_cage,
+                'y1': top_y,
+                'x2': left + half_cage,
+                'y2': bottom_y,
+                'marker-start': 'url(#arrow)',
+                'marker-end': 'url(#arrow)'
+            }],
         ]
 
         return ['g', {}, bracket, text_element]
