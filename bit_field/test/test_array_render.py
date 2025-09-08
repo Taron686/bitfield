@@ -13,23 +13,25 @@ def test_array_polygon_type():
     jsonml = renderer.render(reg)
     svg = jsonml_stringify(jsonml)
     assert '<polygon' in svg
-    assert 'fill="#fff"' in svg
     assert f'stroke="{typeColor(4)}"' in svg
     assert 'gap' in svg
     assert renderer.lanes == 2
 
-    def find_polygon(node):
+    def collect_polygons(node, polys):
         if isinstance(node, list):
             if node and node[0] == 'polygon':
-                return node[1]['points']
+                polys.append(node[1])
             for child in node[1:]:
-                pts = find_polygon(child)
-                if pts:
-                    return pts
-        return None
+                collect_polygons(child, polys)
 
-    pts = find_polygon(jsonml)
-    coords = [tuple(map(float, p.split(','))) for p in pts.split()]
+    polygons = []
+    collect_polygons(jsonml, polygons)
+    fills = [p.get('fill') for p in polygons]
+    assert '#fff' in fills
+    assert typeColor(4) in fills
+
+    white_poly = next(p for p in polygons if p.get('fill') == '#fff')
+    coords = [tuple(map(float, p.split(','))) for p in white_poly['points'].split()]
     top_y = coords[0][1]
     bottom_y = coords[2][1]
     base_y = renderer.fontsize * 1.2
@@ -41,6 +43,17 @@ def test_array_polygon_type():
     x2 = coords[2][0]
     assert x1 == pytest.approx(step * 8 + margin)
     assert x2 == pytest.approx(renderer.hspace - margin)
+
+    color_poly = next(p for p in polygons if p.get('fill') == typeColor(4))
+    c_coords = [tuple(map(float, p.split(','))) for p in color_poly['points'].split()]
+    c_top = c_coords[0][1]
+    c_bottom = c_coords[2][1]
+    assert c_top == pytest.approx(base_y)
+    assert c_bottom == pytest.approx(base_y + renderer.vlane)
+    c_x1 = c_coords[0][0]
+    c_x2 = c_coords[2][0]
+    assert c_x1 == pytest.approx(step * 8)
+    assert c_x2 == pytest.approx(renderer.hspace)
 
 
 def test_array_full_lane_wedge():
