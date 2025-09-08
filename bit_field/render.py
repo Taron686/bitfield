@@ -212,7 +212,7 @@ class Renderer(object):
             raise ValueError('label_lines start_line and end_line must be non-negative')
         if end >= self.lanes or start >= self.lanes:
             raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 2:
+        if end - start < 1:
             raise ValueError('label_lines must cover at least 2 lines')
         layout = self.label_lines['layout']
         if layout not in ('left', 'right'):
@@ -233,7 +233,6 @@ class Renderer(object):
         mid_y = (top_y + bottom_y) / 2
         gap = self.label_gap
         width = self.label_width
-        height_pos = width
         #width = width+ (width/2)
         if layout == 'left':
             x = -(gap + width / 2)
@@ -248,7 +247,7 @@ class Renderer(object):
 
         half_cage = (right-left)/2
         lines = text.split('\n')
-        text_length = width+(self.cage_width*len(lines)/2)
+        text_length = width+(self.cage_width*(end-start)/2)
         text_attrs = {
             'x': x,
             'y': mid_y,
@@ -263,6 +262,9 @@ class Renderer(object):
         }
         if len(lines) == 1:
             text_element = ['text', text_attrs, text]
+            y_height = text_length
+            top_y2 = mid_y-y_height/2-5
+            bottom_y1 = mid_y+y_height/2+5
         else:
             line_height = font_size * 1.2
             start_y = mid_y - line_height * (len(lines) - 1) / 2
@@ -272,8 +274,13 @@ class Renderer(object):
             elements = ['text', attrs]
             for i, line in enumerate(lines):
                 elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
+                y_height = start_y + line_height * i
+            
+            top_y2 = start_y - 5
+            bottom_y1 = y_height+5
+            
             text_element = elements
-        spacing = 15
+
         bracket = ['g', {
             'stroke': 'black',
             'stroke-width': self.stroke_width,
@@ -281,11 +288,11 @@ class Renderer(object):
         },
             ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
-            ['line', {'x1': left + half_cage, 'y1': top_y, 'x2': left + half_cage, 'y2': top_y+self.vspace/2
+            ['line', {'x1': left + half_cage, 'y1': top_y, 'x2': left + half_cage, 'y2': top_y2
                       }],
-            ['line', {'x1': left + half_cage, 'y1': bottom_y-self.vspace/2, 'x2': left + half_cage, 'y2': bottom_y}]
+            ['line', {'x1': left + half_cage, 'y1': bottom_y1, 'x2': left + half_cage, 'y2': bottom_y}]
         ]
-        print(bottom_y)
+
         return ['g', {}, bracket, text_element]
 
     def legend_items(self):
