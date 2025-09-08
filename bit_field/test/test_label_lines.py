@@ -44,21 +44,16 @@ def test_label_lines_draws_text_outside_right():
     assert node is not None
     attrs = node[1]
     assert attrs["font-size"] == 6
-    assert "rotate(90" in attrs.get("transform", "")
-    assert attrs["x"] == pytest.approx(720)
+    assert attrs["text-anchor"] == "start"
+    assert attrs["x"] == pytest.approx(760)
     expected_len = len("Demo") * 6 * 0.6
     assert attrs["textLength"] == pytest.approx(expected_len)
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
-    mid_y = (top_y + bottom_y) / 2
-    top_gap_end = mid_y - expected_len / 2 - 5
-    bottom_gap_start = mid_y + expected_len / 2 + 5
     assert _find_line(res, 680, 760, top_y, top_y) is not None
     assert _find_line(res, 680, 760, bottom_y, bottom_y) is not None
-    assert _find_line(res, 720, 720, top_y, top_gap_end) is not None
-    assert _find_line(res, 720, 720, bottom_gap_start, bottom_y) is not None
-    assert _find_line(res, 720, 720, top_gap_end, bottom_gap_start) is None
+    assert _find_line(res, 720, 720, top_y, bottom_y) is not None
 
 
 def test_label_lines_draws_text_outside_left():
@@ -68,24 +63,18 @@ def test_label_lines_draws_text_outside_left():
     node = _find_text(res, "Demo")
     assert node is not None
     attrs = node[1]
-    assert attrs["x"] == pytest.approx(-80)
-    assert "rotate(-90" in attrs.get("transform", "")
+    assert attrs["x"] == pytest.approx(-120)
+    assert attrs["text-anchor"] == "end"
     root = res
     root_attrs = root[1]
     view_min_x = float(root_attrs["viewBox"].split()[0])
-    assert view_min_x == pytest.approx(-120)
-    expected_len = len("Demo") * 6 * 0.6
+    assert view_min_x == pytest.approx(-134.4)
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
-    mid_y = (top_y + bottom_y) / 2
-    top_gap_end = mid_y - expected_len / 2 - 5
-    bottom_gap_start = mid_y + expected_len / 2 + 5
     assert _find_line(res, -120, -40, top_y, top_y) is not None
     assert _find_line(res, -120, -40, bottom_y, bottom_y) is not None
-    assert _find_line(res, -80, -80, top_y, top_gap_end) is not None
-    assert _find_line(res, -80, -80, bottom_gap_start, bottom_y) is not None
-    assert _find_line(res, -80, -80, top_gap_end, bottom_gap_start) is None
+    assert _find_line(res, -80, -80, top_y, bottom_y) is not None
 
 
 def test_label_lines_multiline():
@@ -96,16 +85,12 @@ def test_label_lines_multiline():
     node2 = _find_text(res, "Line2")
     assert node1 is not None
     assert node2 is not None
-    expected_len = len("Line1") * 6 * 0.6
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
-    mid_y = (top_y + bottom_y) / 2
-    top_gap_end = mid_y - expected_len / 2 - 5
-    bottom_gap_start = mid_y + expected_len / 2 + 5
-    assert _find_line(res, 720, 720, top_y, top_gap_end) is not None
-    assert _find_line(res, 720, 720, bottom_gap_start, bottom_y) is not None
-    assert _find_line(res, 720, 720, top_gap_end, bottom_gap_start) is None
+    assert node1[1]["x"] == pytest.approx(760)
+    assert node2[1]["x"] == pytest.approx(760)
+    assert _find_line(res, 720, 720, top_y, bottom_y) is not None
 
 
 def test_label_lines_invalid_range():
