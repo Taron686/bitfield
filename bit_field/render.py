@@ -208,8 +208,8 @@ class Renderer(object):
             raise ValueError('label_lines start_line and end_line must be non-negative')
         if end >= self.lanes or start >= self.lanes:
             raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 3:
-            raise ValueError('label_lines must cover at least 3 lines')
+        if end - start < 2:
+            raise ValueError('label_lines must cover at least 2 lines')
         layout = self.label_lines['layout']
         if layout not in ('left', 'right'):
             raise ValueError('label_lines layout must be "left" or "right"')
