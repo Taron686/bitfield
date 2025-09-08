@@ -111,9 +111,9 @@ class Renderer(object):
         return [e for e in desc if not (isinstance(e, dict) and 'label_lines' in e)]
 
     def _label_lines_margins(self):
-        cage_width = self.hspace / self.mod
-        self.label_gap = cage_width / 2
-        self.label_width = cage_width
+        self.cage_width = self.hspace / self.mod
+        self.label_gap = self.cage_width / 2
+        self.label_width = self.cage_width
         self.label_margin = self.label_gap + self.label_width
         if self.label_lines['layout'] == 'left':
             return self.label_margin, 0
@@ -168,6 +168,7 @@ class Renderer(object):
         self.label_margin = 0
         self.label_gap = 0
         self.label_width = 0
+        self.cage_width = 0 
         if self.label_lines is not None:
             left_margin, right_margin = self._label_lines_margins()
 
@@ -232,6 +233,8 @@ class Renderer(object):
         mid_y = (top_y + bottom_y) / 2
         gap = self.label_gap
         width = self.label_width
+        height_pos = width
+        #width = width+ (width/2)
         if layout == 'left':
             x = -(gap + width / 2)
             left = x - width / 2
@@ -243,7 +246,9 @@ class Renderer(object):
             right = x + width / 2
             angle = 90
 
+        half_cage = (right-left)/2
         lines = text.split('\n')
+        text_length = width+(self.cage_width*len(lines)/2)
         text_attrs = {
             'x': x,
             'y': mid_y,
@@ -253,7 +258,7 @@ class Renderer(object):
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
             'transform': 'rotate({},{},{})'.format(angle, x, mid_y),
-            'textLength': width,
+            'textLength': text_length,
             'lengthAdjust': 'spacingAndGlyphs'
         }
         if len(lines) == 1:
@@ -268,7 +273,7 @@ class Renderer(object):
             for i, line in enumerate(lines):
                 elements.append(['tspan', {'x': x, 'y': start_y + line_height * i}, line])
             text_element = elements
-
+        spacing = 15
         bracket = ['g', {
             'stroke': 'black',
             'stroke-width': self.stroke_width,
@@ -276,9 +281,11 @@ class Renderer(object):
         },
             ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
-            ['line', {'x1': left, 'y1': top_y, 'x2': left, 'y2': bottom_y}],
-            ['line', {'x1': right, 'y1': top_y, 'x2': right, 'y2': bottom_y}]
+            ['line', {'x1': left + half_cage, 'y1': top_y, 'x2': left + half_cage, 'y2': top_y+self.vspace/2
+                      }],
+            ['line', {'x1': left + half_cage, 'y1': bottom_y-self.vspace/2, 'x2': left + half_cage, 'y2': bottom_y}]
         ]
+        print(bottom_y)
         return ['g', {}, bracket, text_element]
 
     def legend_items(self):
