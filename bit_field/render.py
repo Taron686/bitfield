@@ -236,8 +236,8 @@ class Renderer(object):
             raise ValueError('label_lines start_line and end_line must be non-negative')
         if end >= self.lanes or start >= self.lanes:
             raise ValueError('label_lines start_line/end_line exceed number of lanes')
-        if end - start < 1:
-            raise ValueError('label_lines must cover at least 2 lines')
+        if end - start < 0:
+            raise ValueError('label_lines must cover at least 1 lines')
         layout = self.label_lines['layout']
         if layout not in ('left', 'right'):
             raise ValueError('label_lines layout must be "left" or "right"')
@@ -305,9 +305,9 @@ class Renderer(object):
             ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
             ['line', {
-                'x1': left + half_cage,
+                'x1': left + self.cage_width/2,
                 'y1': top_y,
-                'x2': left + half_cage,
+                'x2': left + self.cage_width/2,
                 'y2': bottom_y,
                 'marker-start': 'url(#arrow)',
                 'marker-end': 'url(#arrow)'
