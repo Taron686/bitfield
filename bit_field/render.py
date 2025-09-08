@@ -154,11 +154,24 @@ class Renderer(object):
         if self.legend:
             height += self.fontsize * 1.2
 
+        left_margin = right_margin = 0
+        self.label_margin = 0
+        if self.label_lines is not None:
+            font_size = self.label_lines.get('font_size', self.fontsize)
+            self.label_margin = font_size * 2
+            if self.label_lines['layout'] == 'left':
+                left_margin = self.label_margin
+            else:
+                right_margin = self.label_margin
+
+        canvas_width = self.hspace + left_margin + right_margin
+        view_min_x = -left_margin
+
         res = ['svg', {
             'xmlns': 'http://www.w3.org/2000/svg',
-            'width': self.hspace,
+            'width': canvas_width,
             'height': height,
-            'viewbox': ' '.join(str(x) for x in [0, 0, self.hspace, height])
+            'viewbox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
         }]
 
         if self.legend:
@@ -211,18 +224,16 @@ class Renderer(object):
         bottom_y = base_y + self.vlane * (end + 1)
         mid_y = (top_y + bottom_y) / 2
         if layout == 'left':
-            x = 0
-            anchor = 'end'
+            x = -self.label_margin / 2
         else:
-            x = self.hspace
-            anchor = 'start'
+            x = self.hspace + self.label_margin / 2
         return ['text', {
             'x': x,
             'y': mid_y,
             'font-size': font_size,
             'font-family': self.fontfamily,
             'font-weight': self.fontweight,
-            'text-anchor': anchor,
+            'text-anchor': 'middle',
             'dominant-baseline': 'middle',
             'transform': 'rotate(90,{},{})'.format(x, mid_y)
         }, text]

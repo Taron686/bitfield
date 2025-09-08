@@ -17,7 +17,7 @@ def _find_text(node, text):
     return None
 
 
-def test_label_lines_draws_text():
+def test_label_lines_draws_text_outside_right():
     reg = _make_reg()
     cfg = {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"}
     res = render(reg, bits=8, label_lines=cfg)
@@ -26,6 +26,21 @@ def test_label_lines_draws_text():
     attrs = node[1]
     assert attrs["font-size"] == 6
     assert "rotate(90" in attrs.get("transform", "")
+    assert attrs["x"] > 640
+
+
+def test_label_lines_draws_text_outside_left():
+    reg = _make_reg()
+    cfg = {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "left"}
+    res = render(reg, bits=8, label_lines=cfg)
+    node = _find_text(res, "Demo")
+    assert node is not None
+    attrs = node[1]
+    assert attrs["x"] < 0
+    root = res
+    root_attrs = root[1]
+    view_min_x = float(root_attrs["viewbox"].split()[0])
+    assert view_min_x < 0
 
 
 def test_label_lines_invalid_range():

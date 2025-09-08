@@ -42,7 +42,8 @@ reg = [
 render(reg, bits=8)
 ```
 
-The label is drawn only if `end_line - start_line >= 3`.
+The label is drawn outside the bitfield on the requested side.  It is
+rendered only if `end_line - start_line >= 3`.
 
 ## CLI Usage
 
