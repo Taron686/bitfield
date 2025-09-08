@@ -211,11 +211,11 @@ class Renderer(object):
                 x1 = x1_raw + margin
                 x2 = x2_outer - width
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
-                line_color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
+                fill_color = typeColor(e.get('type')) if e.get('type') is not None else '#fff'
                 grp = ['g', {'stroke-width': self.stroke_width}]
                 grp.append(['polygon', {
                     'points': pts,
-                    'fill': '#fff',
+                    'fill': fill_color,
                     'stroke': '#000'
                 }])
                 grp.append(['line', {
@@ -223,14 +223,14 @@ class Renderer(object):
                     'y1': top_y,
                     'x2': x2,
                     'y2': bottom_y,
-                    'stroke': line_color
+                    'stroke': '#fff'
                 }])
                 grp.append(['line', {
                     'x1': x1+width,
                     'y1': top_y,
                     'x2': x2_outer,
                     'y2': bottom_y,
-                    'stroke': line_color
+                    'stroke': '#fff'
                 }])
                 if 'name' in e:
                     mid_x = (x1 + x2_outer) / 2
