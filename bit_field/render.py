@@ -368,7 +368,7 @@ class Renderer(object):
                 end_lane = (end - 1) // self.mod if end > 0 else 0
                 x1_raw = (start % self.mod) * step
                 x2_raw = (end % self.mod) * step
-                width = step / 2
+                width = step * e.get('gap_width', 0.5)
                 margin = step * 0.1
                 top_y = base_y + self.vlane * start_lane
                 bottom_y = base_y + self.vlane * (end_lane + 1)

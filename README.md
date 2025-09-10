@@ -71,12 +71,13 @@ rendered only if `end_line - start_line >= 1`.
 
 Use an `{"array": length}` descriptor to draw a wedge representing an
 unknown-length field or gap. The optional `type` and `name` keys colour and
-label the gap:
+label the gap, and `gap_width` adjusts the wedge width as a fraction of a
+single bit (default `0.5`):
 
 ```python
 reg = [
   {"name": "start", "bits": 8},
-  {"array": 8, "type": 4, "name": "gap"},
+  {"array": 8, "type": 4, "name": "gap", "gap_width": 0.75},
   {"name": "end", "bits": 8},
 ]
 render(reg, bits=16)
