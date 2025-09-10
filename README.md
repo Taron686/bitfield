@@ -147,10 +147,9 @@ input                           input JSON filename (required)
     {"label_lines": "Length", "font_size": 12, "start_line": 2, "end_line": 4, "layout": "right"}
     
 ]
+```
 ![Json Example](example/example.svg)
 
-```
-https://github.com/Taron686/bitfield/blob/master/example/example.svg
 Rendering with the CLI:
 
 ```sh
