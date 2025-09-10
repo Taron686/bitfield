@@ -90,3 +90,51 @@ def test_array_full_lane_wedge():
     renderer = Renderer(bits=16)
     svg = jsonml_stringify(renderer.render(reg))
     assert f"{renderer.hspace}" in svg
+
+
+def test_array_text_default_black():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'type': 4, 'name': 'gap'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                content = node[2] if len(node) > 2 else ''
+                texts.append((node[1], content))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'gap')
+    assert gap_text.get('fill') == 'black'
+    assert gap_text.get('stroke') == 'none'
+
+
+def test_array_text_custom_color():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'type': 4, 'name': 'gap', 'font_color': '#0f0'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                content = node[2] if len(node) > 2 else ''
+                texts.append((node[1], content))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'gap')
+    assert gap_text.get('fill') == '#0f0'
+    assert gap_text.get('stroke') == 'none'
