@@ -19,13 +19,13 @@ available as a Sphinx extension: [sphinxcontrib-bitfield](https://github.com/Art
 ## Installation
 
 ```sh
-pip install bit_field
+currently not on pip
 ```
 
 To install with JSON5 support:
 
 ```sh
-pip install bit_field[JSON5]
+currently not on pip
 ```
 
 ## Library usage
