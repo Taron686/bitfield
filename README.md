@@ -1,6 +1,7 @@
 # bit_field
 
-A Python 3 port of the JavaScript [bit-field library](https://github.com/drom/bitfield/) by [Aliaksei Chapyzhenka](https://github.com/drom).
+A Python 3 port of the JavaScript [bit-field library](https://github.com/drom/bitfield/) by [Aliaksei Chapyzhenka](https://github.com/drom)
+and a Fork of [Arth-ur](https://github.com/Arth-ur/bitfield)
 The renderer produces SVG diagrams from a simple JSON description and is also
 available as a Sphinx extension: [sphinxcontrib-bitfield](https://github.com/Arth-ur/sphinxcontrib-bitfield).
 
