@@ -3,7 +3,7 @@ import json
 from .. import render
 from ..jsonml_stringify import jsonml_stringify
 from pathlib import Path
-from subprocess import run
+from subprocess import run, CalledProcessError
 from .render_report import render_report
 
 
@@ -65,8 +65,20 @@ def input_data():
 
 @pytest.fixture
 def output_dir():
-    git_describe = run(['git', 'describe', '--tags', '--match', 'v*'],
-                       capture_output=True, check=True, text=True).stdout.strip()
+    try:
+        git_describe = run(
+            ['git', 'describe', '--tags', '--match', 'v*'],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
+    except CalledProcessError:
+        git_describe = run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
     output_dir = Path(__file__).parent / f'output-{git_describe}'
     output_dir.mkdir(exist_ok=True)
     return output_dir

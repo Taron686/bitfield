@@ -101,8 +101,27 @@ def test_label_lines_angle():
     assert node is not None
     attrs = node[1]
     assert "transform" in attrs
+    assert attrs["text-anchor"] == "middle"
+    expected_len = len("Demo") * 6 * 0.6
+    assert attrs["x"] == pytest.approx(760 + expected_len / 2)
     angle, x, y = attrs["transform"][7:-1].split(",")
     assert float(angle) == pytest.approx(45)
+    assert float(x) == pytest.approx(attrs["x"])
+    assert float(y) == pytest.approx(attrs["y"])
+
+
+def test_label_lines_angle_left():
+    reg = _make_reg()
+    cfg = {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "left", "angle": -30}
+    res = render(reg, bits=8, label_lines=cfg)
+    node = _find_text(res, "Demo")
+    assert node is not None
+    attrs = node[1]
+    assert attrs["text-anchor"] == "middle"
+    expected_len = len("Demo") * 6 * 0.6
+    assert attrs["x"] == pytest.approx(-120 - expected_len / 2)
+    angle, x, y = attrs["transform"][7:-1].split(",")
+    assert float(angle) == pytest.approx(-30)
     assert float(x) == pytest.approx(attrs["x"])
     assert float(y) == pytest.approx(attrs["y"])
 

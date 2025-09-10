@@ -66,7 +66,7 @@ centre:
 ```
 
 Each label is drawn outside the bitfield on the requested side. Labels are
-rendered only if `end_line - start_line >= 1`.
+rendered only if `end_line - start_line >= 2`.
 
 ### Array gaps
 
