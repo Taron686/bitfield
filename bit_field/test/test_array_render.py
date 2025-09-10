@@ -56,6 +56,31 @@ def test_array_polygon_type():
     assert c_x2 == pytest.approx(renderer.hspace)
 
 
+def test_array_gap_width():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'gap_width': 1.0, 'name': 'gap'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+    white_poly = next(p for p in polygons if p.get('fill') == '#fff')
+    coords = [tuple(map(float, p.split(','))) for p in white_poly['points'].split()]
+    step = renderer.hspace / renderer.mod
+    width = step * 1.0
+    assert coords[1][0] == pytest.approx(coords[0][0] + width)
+    assert coords[3][0] == pytest.approx(coords[2][0] - width)
+
 def test_array_full_lane_wedge():
     reg = [
         {'name': 'head', 'bits': 8},
