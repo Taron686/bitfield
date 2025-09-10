@@ -129,12 +129,23 @@ input                           input JSON filename (required)
 
 ```json
 [
-    { "name": "IPO",   "bits": 8,  "attr": "RO" },
-    {                  "bits": 7 },
-    { "name": "BRK",   "bits": 5,  "attr": [11, "RO"], "type": 4 },
-    { "name": "CPK",   "bits": 1 },
-    { "name": "Clear", "bits": 3 },
-    { "bits": 8 }
+    { "name": "Lorem ipsum dolor", "bits": 32 , "type": 1},
+    { "name": "consetetur sadipsci", "bits": 32 , "type": 1},
+    { "name": "ipsum dolor ", "bits": 32 , "type": 1},
+    { "name": "t dolore ", "bits": 8 , "type": 1},
+    { "name": "dolores ", "bits": 8, "type": 1},
+    { "name": "ea takima", "bits": 8 , "type": 1},
+    { "name": "s est Lorem", "bits": 8 , "type": [125,36,200]},
+    { "array": 64, "name": "et accusa","type": 3},
+
+    { "name": "et accusa", "bits": 32 , "type": 4},
+    { "array": 64, "type": 4, "name": " accu","font_size": 12},
+
+    {"label_lines": "Line Cover1", "font_size": 12, "start_line": 0, "end_line": 3, "layout": "left"},
+    {"label_lines": "Line Cover2", "font_size": 12, "start_line": 4, "end_line": 4, "layout": "left"},
+    {"label_lines": "Length", "font_size": 12, "start_line": 5, "end_line": 8, "layout": "right"},
+    {"label_lines": "Length", "font_size": 12, "start_line": 2, "end_line": 4, "layout": "right"}
+    
 ]
 ```
 
