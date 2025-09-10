@@ -39,6 +39,7 @@ def bit_field_cli():
     parser.add_argument('--label-start-line', type=int)
     parser.add_argument('--label-end-line', type=int)
     parser.add_argument('--label-layout', choices=['left', 'right'], default='left')
+    parser.add_argument('--label-angle', type=float)
     args = parser.parse_args()
 
     # default is json5, unless forced with --(no-)json5
@@ -63,6 +64,8 @@ def bit_field_cli():
                 'end_line': args.label_end_line,
                 'layout': args.label_layout,
             }
+            if args.label_angle is not None:
+                label_cfg['angle'] = args.label_angle
         res = render(data,
                      hspace=args.hspace,
                      vspace=args.vspace,

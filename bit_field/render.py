@@ -248,11 +248,13 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
-                raise ValueError('label_lines must cover at least 1 lines')
+            if end - start < 2:
+                raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
                 raise ValueError('label_lines layout must be "left" or "right"')
+            if 'angle' in cfg and not isinstance(cfg['angle'], (int, float)):
+                raise ValueError('label_lines angle must be a number')
 
     def _label_lines_element(self, cfg):
         text = cfg['label_lines']
@@ -284,6 +286,10 @@ class Renderer(object):
         lines = text.split('\n')
         max_text_len = max((len(line) for line in lines), default=0)
         text_length = max_text_len * font_size * 0.6
+        angle = cfg.get('angle', 0)
+        if angle:
+            text_x += (-text_length / 2) if layout == 'left' else (text_length / 2)
+            anchor = 'middle'
         text_attrs = {
             'x': text_x,
             'y': mid_y,
@@ -293,6 +299,8 @@ class Renderer(object):
             'text-anchor': anchor,
             'dominant-baseline': 'middle'
         }
+        if angle:
+            text_attrs['transform'] = 'rotate({},{},{})'.format(angle, text_x, mid_y)
         if len(lines) == 1:
             text_attrs['textLength'] = text_length
             text_attrs['lengthAdjust'] = 'spacingAndGlyphs'
