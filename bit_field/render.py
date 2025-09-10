@@ -407,13 +407,16 @@ class Renderer(object):
                 if 'name' in e:
                     mid_x = (x1 + x2_outer) / 2
                     mid_y = (top_y + bottom_y) / 2 + self.fontsize / 2
+                    text_color = e.get('font_color', 'black')
                     grp.append(['text', {
                         'x': mid_x,
                         'y': mid_y,
                         'font-size': self.fontsize,
                         'font-family': self.fontfamily,
                         'font-weight': self.fontweight,
-                        'text-anchor': 'middle'
+                        'text-anchor': 'middle',
+                        'fill': text_color,
+                        'stroke': 'none'
                     }, e['name']])
                 res.append(grp)
                 bit_pos = end
