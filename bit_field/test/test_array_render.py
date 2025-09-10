@@ -65,3 +65,25 @@ def test_array_full_lane_wedge():
     renderer = Renderer(bits=16)
     svg = jsonml_stringify(renderer.render(reg))
     assert f"{renderer.hspace}" in svg
+
+
+def test_array_custom_gap_fill():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'type': 4, 'name': 'gap', 'gap_fill': '#000'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+    fills = [p.get('fill') for p in polygons]
+    assert '#000' in fills

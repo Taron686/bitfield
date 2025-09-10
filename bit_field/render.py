@@ -392,8 +392,9 @@ class Renderer(object):
                         'fill': typeColor(e['type']),
                         'stroke': 'none'
                     }])
-                # white gap polygon on top
-                grp.append(['polygon', {'points': pts, 'fill': '#fff'}])
+                # gap polygon on top, optionally with custom fill
+                gap_fill = e.get('gap_fill', e.get('fill', '#fff'))
+                grp.append(['polygon', {'points': pts, 'fill': gap_fill}])
                 grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
                 grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
                 if 'name' in e:
