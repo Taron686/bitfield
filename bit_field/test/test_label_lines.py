@@ -93,6 +93,20 @@ def test_label_lines_multiline():
     assert _find_line(res, 720, 720, top_y, bottom_y) is not None
 
 
+def test_label_lines_angle():
+    reg = _make_reg()
+    cfg = {"label_lines": "Demo", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right", "angle": 45}
+    res = render(reg, bits=8, label_lines=cfg)
+    node = _find_text(res, "Demo")
+    assert node is not None
+    attrs = node[1]
+    assert "transform" in attrs
+    angle, x, y = attrs["transform"][7:-1].split(",")
+    assert float(angle) == pytest.approx(45)
+    assert float(x) == pytest.approx(attrs["x"])
+    assert float(y) == pytest.approx(attrs["y"])
+
+
 def test_multiple_label_lines():
     reg = _make_reg()
     cfgs = [
