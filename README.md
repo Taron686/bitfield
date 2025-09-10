@@ -54,31 +54,31 @@ svg = jsonml_stringify(jsonml)
 
 Add horizontal labels spanning multiple lanes by including objects with a
 `"label_lines"` key in your descriptor list. Newline characters (`\n`) create
-multiple lines:
+multiple lines. The optional `angle` parameter rotates the text around its
+centre:
 
 ```json
 [
   {"bits": 8, "name": "data"},
-  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+  {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right", "angle": 30},
   {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"}
 ]
 ```
 
 Each label is drawn outside the bitfield on the requested side. Labels are
-rendered only if `end_line - start_line >= 1`. If multiple labels on the same
-side cover overlapping ranges, later labels are automatically shifted further
-outward so that their brackets and text do not collide.
+rendered only if `end_line - start_line >= 2`.
 
 ### Array gaps
 
 Use an `{"array": length}` descriptor to draw a wedge representing an
 unknown-length field or gap. The optional `type` and `name` keys colour and
-label the gap. A `gap_fill` value customises the wedge colour (default `#fff`):
+label the gap, and `gap_width` adjusts the wedge width as a fraction of a
+single bit (default `0.5`):
 
 ```python
 reg = [
   {"name": "start", "bits": 8},
-  {"array": 8, "type": 4, "name": "gap", "gap_fill": "#000"},  # black gap
+  {"array": 8, "type": 4, "name": "gap", "gap_width": 0.75},
   {"name": "end", "bits": 8},
 ]
 render(reg, bits=16)

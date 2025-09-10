@@ -56,21 +56,10 @@ def test_array_polygon_type():
     assert c_x2 == pytest.approx(renderer.hspace)
 
 
-def test_array_full_lane_wedge():
-    reg = [
-        {'name': 'head', 'bits': 8},
-        {'array': 32, 'type': 4},
-        {'name': 'tail', 'bits': 8},
-    ]
-    renderer = Renderer(bits=16)
-    svg = jsonml_stringify(renderer.render(reg))
-    assert f"{renderer.hspace}" in svg
-
-
-def test_array_custom_gap_fill():
+def test_array_gap_width():
     reg = [
         {'name': 'length1', 'bits': 8},
-        {'array': 8, 'type': 4, 'name': 'gap', 'gap_fill': '#000'},
+        {'array': 8, 'gap_width': 1.0, 'name': 'gap'},
         {'name': 'rest', 'bits': 8},
     ]
     renderer = Renderer(bits=16)
@@ -85,5 +74,67 @@ def test_array_custom_gap_fill():
 
     polygons = []
     collect_polygons(jsonml, polygons)
-    fills = [p.get('fill') for p in polygons]
-    assert '#000' in fills
+    white_poly = next(p for p in polygons if p.get('fill') == '#fff')
+    coords = [tuple(map(float, p.split(','))) for p in white_poly['points'].split()]
+    step = renderer.hspace / renderer.mod
+    width = step * 1.0
+    assert coords[1][0] == pytest.approx(coords[0][0] + width)
+    assert coords[3][0] == pytest.approx(coords[2][0] - width)
+
+def test_array_full_lane_wedge():
+    reg = [
+        {'name': 'head', 'bits': 8},
+        {'array': 32, 'type': 4},
+        {'name': 'tail', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    svg = jsonml_stringify(renderer.render(reg))
+    assert f"{renderer.hspace}" in svg
+
+
+def test_array_text_default_black():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'type': 4, 'name': 'gap'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                content = node[2] if len(node) > 2 else ''
+                texts.append((node[1], content))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'gap')
+    assert gap_text.get('fill') == 'black'
+    assert gap_text.get('stroke') == 'none'
+
+
+def test_array_text_custom_color():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'type': 4, 'name': 'gap', 'font_color': '#0f0'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                content = node[2] if len(node) > 2 else ''
+                texts.append((node[1], content))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'gap')
+    assert gap_text.get('fill') == '#0f0'
+    assert gap_text.get('stroke') == 'none'
