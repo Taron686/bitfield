@@ -112,6 +112,26 @@ def test_multiple_label_lines():
     assert _find_line(res, 720, 720, top_y2, bottom_y2) is not None
 
 
+def test_overlapping_label_lines_shift_right():
+    reg = _make_reg()
+    cfgs = [
+        {"label_lines": "Demo1", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
+        {"label_lines": "Demo2", "font_size": 6, "start_line": 2, "end_line": 5, "layout": "right"},
+        {"label_lines": "Demo3", "font_size": 6, "start_line": 6, "end_line": 7, "layout": "right"},
+    ]
+    res = render(reg, bits=8, label_lines=cfgs)
+    node1 = _find_text(res, "Demo1")
+    node2 = _find_text(res, "Demo2")
+    node3 = _find_text(res, "Demo3")
+    assert node1 is not None and node2 is not None and node3 is not None
+    # first and third labels are in the default position
+    assert node1[1]["x"] == pytest.approx(760)
+    assert node3[1]["x"] == pytest.approx(760)
+    # second label overlaps with the first and should be shifted right
+    expected = 760 + (40 + 80 + len("Demo1") * 6 * 0.6)
+    assert node2[1]["x"] == pytest.approx(expected)
+
+
 def test_label_lines_invalid_range():
     reg = _make_reg()
     cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 8, "layout": "left"}

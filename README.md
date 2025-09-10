@@ -65,7 +65,9 @@ multiple lines:
 ```
 
 Each label is drawn outside the bitfield on the requested side. Labels are
-rendered only if `end_line - start_line >= 1`.
+rendered only if `end_line - start_line >= 1`. If multiple labels on the same
+side cover overlapping ranges, later labels are automatically shifted further
+outward so that their brackets and text do not collide.
 
 ### Array gaps
 

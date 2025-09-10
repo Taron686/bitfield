@@ -122,16 +122,27 @@ class Renderer(object):
         self.label_gap = self.cage_width / 2
         self.label_width = self.cage_width
         left_margin = right_margin = 0
-        for cfg in self.label_lines:
-            font_size = cfg.get('font_size', self.fontsize)
-            lines = cfg['label_lines'].split('\n')
-            max_text_len = max((len(line) for line in lines), default=0)
-            text_length = max_text_len * font_size * 0.6
-            margin = self.label_width / 2 + 2 * self.label_gap + text_length
-            if cfg['layout'] == 'left':
-                left_margin = max(left_margin, margin)
-            else:
-                right_margin = max(right_margin, margin)
+
+        for side in ('left', 'right'):
+            active = []
+            for cfg in [c for c in self.label_lines if c['layout'] == side]:
+                font_size = cfg.get('font_size', self.fontsize)
+                lines = cfg['label_lines'].split('\n')
+                max_text_len = max((len(line) for line in lines), default=0)
+                text_length = max_text_len * font_size * 0.6
+                margin = self.label_width / 2 + 2 * self.label_gap + text_length
+                cfg['_margin'] = margin
+                active = [a for a in active if a['end'] >= cfg['start_line']]
+                offset = 0
+                for a in active:
+                    offset = max(offset, a['offset'] + a['margin'])
+                cfg['_offset'] = offset
+                active.append({'end': cfg['end_line'], 'offset': offset, 'margin': margin})
+                if side == 'left':
+                    left_margin = max(left_margin, offset + margin)
+                else:
+                    right_margin = max(right_margin, offset + margin)
+
         self.label_margin = max(left_margin, right_margin)
         return left_margin, right_margin
 
@@ -268,14 +279,15 @@ class Renderer(object):
         mid_y = (top_y + bottom_y) / 2
         gap = self.label_gap
         width = self.label_width
+        offset = cfg.get('_offset', 0)
         if layout == 'left':
-            x = -(gap + width / 2)
+            x = -(gap + width / 2 + offset)
             left = x - width / 2
             right = x + width / 2
             text_x = x - gap
             anchor = 'end'
         else:
-            x = self.hspace + gap + width / 2
+            x = self.hspace + gap + width / 2 + offset
             left = x - width / 2
             right = x + width / 2
             text_x = x + gap
