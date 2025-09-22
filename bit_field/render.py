@@ -260,13 +260,15 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
+            if end - start < 2:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
                 raise ValueError('label_lines layout must be "left" or "right"')
             if 'angle' in cfg and not isinstance(cfg['angle'], (int, float)):
                 raise ValueError('label_lines angle must be a number')
+            if 'Reserved' in cfg and not isinstance(cfg['Reserved'], bool):
+                raise ValueError('label_lines Reserved must be a boolean')
 
     def _label_lines_element(self, cfg):
         text = cfg['label_lines']
@@ -303,6 +305,7 @@ class Renderer(object):
         if angle:
             text_x += (-text_length / 2) if layout == 'left' else (text_length / 2)
             anchor = 'middle'
+        reserved_offset = self.vlane * 0.2 if cfg.get('Reserved') else 0
         text_attrs = {
             'x': text_x,
             'y': mid_y,
@@ -329,16 +332,17 @@ class Renderer(object):
                 elements.append(['tspan', {'x': text_x, 'y': start_y + line_height * i}, line])
             text_element = elements
 
+        top_line_y = top_y - reserved_offset
         bracket = ['g', {
             'stroke': 'black',
             'stroke-width': self.stroke_width,
             'fill': 'none'
         },
-            ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
+            ['line', {'x1': left, 'y1': top_line_y, 'x2': right, 'y2': top_line_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
             ['line', {
                 'x1': left + self.cage_width/2,
-                'y1': top_y,
+                'y1': top_line_y,
                 'x2': left + self.cage_width/2,
                 'y2': bottom_y,
                 'marker-start': 'url(#arrow)',
