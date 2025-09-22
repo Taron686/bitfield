@@ -34,7 +34,8 @@ def typeColor(t):
     if t in styles:
         r, g, b = colorsys.hls_to_rgb(styles[t] / 360, 0.9, 1)
         return "rgb({:.0f}, {:.0f}, {:.0f})".format(r * 255, g * 255, b * 255)
-    
+    elif "#" in t and len(t) == 7:
+        return t
     # --- Standardfarbe für alles andere ---
     return "rgb(229, 229, 229)"
 
