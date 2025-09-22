@@ -55,12 +55,14 @@ svg = jsonml_stringify(jsonml)
 Add horizontal labels spanning multiple lanes by including objects with a
 `"label_lines"` key in your descriptor list. Newline characters (`\n`) create
 multiple lines. The optional `angle` parameter rotates the text around its
-centre:
+centre. Set `"Reserved": true` to draw the connecting arrow a little above the
+start line when you need to indicate a reserved region:
 
 ```json
 [
   {"bits": 8, "name": "data"},
   {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right", "angle": 30},
+  {"label_lines": "Reserved", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right", "Reserved": true},
   {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"}
 ]
 ```

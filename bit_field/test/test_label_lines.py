@@ -146,11 +146,11 @@ def test_multiple_label_lines():
 
 
 def test_overlapping_label_lines_shift_right():
-    reg = _make_reg()
+    reg = _make_reg(lanes=9)
     cfgs = [
         {"label_lines": "Demo1", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right"},
         {"label_lines": "Demo2", "font_size": 6, "start_line": 2, "end_line": 5, "layout": "right"},
-        {"label_lines": "Demo3", "font_size": 6, "start_line": 6, "end_line": 7, "layout": "right"},
+        {"label_lines": "Demo3", "font_size": 6, "start_line": 6, "end_line": 8, "layout": "right"},
     ]
     res = render(reg, bits=8, label_lines=cfgs)
     node1 = _find_text(res, "Demo1")
@@ -163,6 +163,24 @@ def test_overlapping_label_lines_shift_right():
     # second label overlaps with the first and should be shifted right
     expected = 760 + (40 + 80 + len("Demo1") * 6 * 0.6)
     assert node2[1]["x"] == pytest.approx(expected)
+
+
+def test_label_lines_reserved_shifts_arrow():
+    reg = _make_reg()
+    cfg = {
+        "label_lines": "Demo",
+        "font_size": 6,
+        "start_line": 1,
+        "end_line": 3,
+        "layout": "right",
+        "Reserved": True,
+    }
+    res = render(reg, bits=8, label_lines=cfg)
+    top_y = 14 * 1.2 + (80 - 14 * 1.2)
+    vlane = 80 - 14 * 1.2
+    bottom_y = 14 * 1.2 + vlane * 4
+    reserved_offset = vlane * 0.2
+    assert _find_line(res, 720, 720, top_y - reserved_offset, bottom_y) is not None
 
 
 def test_label_lines_invalid_range():
