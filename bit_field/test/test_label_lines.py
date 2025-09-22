@@ -180,6 +180,7 @@ def test_label_lines_reserved_shifts_arrow():
     vlane = 80 - 14 * 1.2
     bottom_y = 14 * 1.2 + vlane * 4
     reserved_offset = vlane * 0.2
+    assert _find_line(res, 680, 760, top_y - reserved_offset, top_y - reserved_offset) is not None
     assert _find_line(res, 720, 720, top_y - reserved_offset, bottom_y) is not None
 
 

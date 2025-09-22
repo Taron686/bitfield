@@ -332,16 +332,17 @@ class Renderer(object):
                 elements.append(['tspan', {'x': text_x, 'y': start_y + line_height * i}, line])
             text_element = elements
 
+        top_line_y = top_y - reserved_offset
         bracket = ['g', {
             'stroke': 'black',
             'stroke-width': self.stroke_width,
             'fill': 'none'
         },
-            ['line', {'x1': left, 'y1': top_y, 'x2': right, 'y2': top_y}],
+            ['line', {'x1': left, 'y1': top_line_y, 'x2': right, 'y2': top_line_y}],
             ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
             ['line', {
                 'x1': left + self.cage_width/2,
-                'y1': top_y - reserved_offset,
+                'y1': top_line_y,
                 'x2': left + self.cage_width/2,
                 'y2': bottom_y,
                 'marker-start': 'url(#arrow)',
