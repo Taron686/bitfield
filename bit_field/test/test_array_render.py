@@ -138,3 +138,31 @@ def test_array_text_custom_color():
     gap_text = next(attrs for attrs, content in texts if content == 'gap')
     assert gap_text.get('fill') == '#0f0'
     assert gap_text.get('stroke') == 'none'
+
+
+def test_array_hide_lines_skips_grid_and_horizontal():
+    reg = [
+        {'array': 128, 'hide_lines': True},
+    ]
+    renderer = Renderer(bits=32, grid_draw=True)
+    jsonml = renderer.render(reg)
+
+    lines = []
+
+    def collect_lines(node):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child)
+
+    collect_lines(jsonml)
+
+    horizontals = [
+        attrs for attrs in lines
+        if attrs.get('y1', 0) == attrs.get('y2', 0)
+    ]
+    tiny_verticals = [attrs for attrs in lines if attrs.get('y2') == 7.9]
+
+    assert len(horizontals) == 2
+    assert tiny_verticals == []
