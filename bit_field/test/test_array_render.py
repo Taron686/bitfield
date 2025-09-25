@@ -3,6 +3,14 @@ from ..jsonml_stringify import jsonml_stringify
 from ..render import typeColor, Renderer
 
 
+def extract_text_content(node):
+    if isinstance(node, str):
+        return node
+    if isinstance(node, list):
+        return ''.join(extract_text_content(child) for child in node[2:])
+    return ''
+
+
 def test_array_polygon_type():
     reg = [
         {'name': 'length1', 'bits': 8},
@@ -104,8 +112,7 @@ def test_array_text_default_black():
     def collect_texts(node, texts):
         if isinstance(node, list):
             if node and node[0] == 'text':
-                content = node[2] if len(node) > 2 else ''
-                texts.append((node[1], content))
+                texts.append((node[1], extract_text_content(node)))
             for child in node[1:]:
                 collect_texts(child, texts)
 
@@ -128,8 +135,7 @@ def test_array_text_custom_color():
     def collect_texts(node, texts):
         if isinstance(node, list):
             if node and node[0] == 'text':
-                content = node[2] if len(node) > 2 else ''
-                texts.append((node[1], content))
+                texts.append((node[1], extract_text_content(node)))
             for child in node[1:]:
                 collect_texts(child, texts)
 
@@ -138,6 +144,40 @@ def test_array_text_custom_color():
     gap_text = next(attrs for attrs, content in texts if content == 'gap')
     assert gap_text.get('fill') == '#0f0'
     assert gap_text.get('stroke') == 'none'
+
+
+def test_array_text_allows_newline():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'name': 'first line\nsecond line'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    text_nodes = []
+
+    def collect_text_nodes(node):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                text_nodes.append(node)
+            for child in node[1:]:
+                collect_text_nodes(child)
+
+    collect_text_nodes(jsonml)
+    gap_node = next(
+        node for node in text_nodes
+        if any(isinstance(child, list) and child[0] == 'tspan' and child[2] == 'first line'
+               for child in node[2:])
+    )
+    spans = [child for child in gap_node[2:] if isinstance(child, list) and child[0] == 'tspan']
+    assert [span[2] for span in spans] == ['first line', 'second line']
+    assert all('x' in span[1] for span in spans)
+    assert all('y' in span[1] for span in spans)
+    x_values = [float(span[1]['x']) for span in spans]
+    assert x_values[0] == pytest.approx(x_values[1])
+    y_values = [float(span[1]['y']) for span in spans]
+    assert y_values[1] > y_values[0]
 
 
 def test_array_hide_lines_skips_grid_and_horizontal():
