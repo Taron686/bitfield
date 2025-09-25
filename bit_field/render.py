@@ -56,7 +56,8 @@ class Renderer(object):
                  trim=None,
                  uneven=False,
                  legend=None,
-                 label_lines=None):
+                 label_lines=None,
+                 grid_draw=True):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -91,6 +92,7 @@ class Renderer(object):
             self.label_lines = [label_lines]
         else:
             self.label_lines = label_lines
+        self.grid_draw = grid_draw
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -498,10 +500,11 @@ class Renderer(object):
             elif any('lsb' in e and e['lsb'] == bit for e in desc):
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
             else:
-                res.append(self.vline((self.vlane / 8),
-                                      lpos * hbit + self.stroke_width / 2))
-                res.append(self.vline((self.vlane / 8),
-                                      lpos * hbit + self.stroke_width / 2, self.vlane * 7 / 8))
+                if self.grid_draw:
+                    res.append(self.vline((self.vlane / 8),
+                                          lpos * hbit + self.stroke_width / 2))
+                    res.append(self.vline((self.vlane / 8),
+                                          lpos * hbit + self.stroke_width / 2, self.vlane * 7 / 8))
 
         return res
 
