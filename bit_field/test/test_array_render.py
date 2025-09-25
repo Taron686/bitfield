@@ -168,6 +168,18 @@ def test_array_hide_lines_suppresses_internal_ticks():
                     ticks.append(attrs['x1'])
         return ticks
 
+    def horizontal_lines(renderer, jsonml):
+        lines = []
+        collect_lines(jsonml, lines)
+        tops = []
+        bottoms = []
+        for attrs in lines:
+            if attrs.get('y1') == renderer.vlane and attrs.get('y2') == renderer.vlane:
+                bottoms.append(attrs)
+            elif 'y1' not in attrs and 'y2' not in attrs and 'x2' in attrs:
+                tops.append(attrs)
+        return tops, bottoms
+
     regular_reg = copy.deepcopy(base_reg)
     renderer_regular = Renderer(bits=32)
     jsonml_regular = renderer_regular.render(regular_reg)
@@ -180,9 +192,10 @@ def test_array_hide_lines_suppresses_internal_ticks():
     renderer_hidden = Renderer(bits=32)
     jsonml_hidden = renderer_hidden.render(hidden_reg)
     hidden_ticks = top_tick_positions(renderer_hidden, jsonml_hidden)
+    hidden_tops, hidden_bottoms = horizontal_lines(renderer_hidden, jsonml_hidden)
 
     field_starts = {e['lsb'] for e in regular_reg if 'lsb' in e}
-    expected_removed = 0
+    expected_removed_ticks = 0
     for span_start, span_end in [(e['_array_start'], e['_array_end'])
                                  for e in hidden_reg if e.get('hide_lines')]:
         for bit in range(span_start + 1, span_end):
@@ -192,8 +205,22 @@ def test_array_hide_lines_suppresses_internal_ticks():
                 continue
             if bit in field_starts:
                 continue
-            expected_removed += 1
+            expected_removed_ticks += 1
 
-    assert expected_removed > 0
+    assert expected_removed_ticks > 0
     assert len(hidden_ticks) < len(regular_ticks)
-    assert len(regular_ticks) - len(hidden_ticks) == expected_removed
+    assert len(regular_ticks) - len(hidden_ticks) == expected_removed_ticks
+
+    regular_tops, regular_bottoms = horizontal_lines(renderer_regular, jsonml_regular)
+
+    lane_boundaries = [renderer_regular.mod * lane
+                       for lane in range(1, renderer_regular.lanes)]
+    hidden_boundaries = 0
+    for span_start, span_end in [(e['_array_start'], e['_array_end'])
+                                 for e in hidden_reg if e.get('hide_lines')]:
+        hidden_boundaries += sum(1 for boundary in lane_boundaries
+                                 if span_start < boundary < span_end)
+
+    assert hidden_boundaries > 0
+    assert len(regular_bottoms) - len(hidden_bottoms) == hidden_boundaries
+    assert len(regular_tops) - len(hidden_tops) == hidden_boundaries

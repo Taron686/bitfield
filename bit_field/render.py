@@ -479,6 +479,11 @@ class Renderer(object):
                 if start is not None and end is not None:
                     hide_spans.append((start, end))
 
+        def boundary_hidden(bit):
+            if bit is None:
+                return False
+            return any(start < bit < end for start, end in hide_spans)
+
         skip_count = 0
         if self.uneven and self.lanes > 1 and self.lane_index == self.lanes - 1:
             skip_count = self.mod - self.total_bits % self.mod
@@ -488,9 +493,14 @@ class Renderer(object):
         hlen = (self.hspace / self.mod) * (self.mod - skip_count)
         hpos = 0 if self.vflip else (self.hspace / self.mod) * (skip_count)
 
-        if not self.compact or self.hflip or self.lane_index == 0:
+        lane_start = self.lane_index * self.mod
+        lane_end = min(lane_start + self.mod, self.total_bits)
+
+        if ((not self.compact or self.hflip or self.lane_index == 0)
+                and not boundary_hidden(lane_end)):
             res.append(self.hline(hlen, hpos, self.vlane))  # bottom
-        if not self.compact or not self.hflip or self.lane_index == 0:
+        if ((not self.compact or not self.hflip or self.lane_index == 0)
+                and not boundary_hidden(lane_start)):
             res.append(self.hline(hlen, hpos))  # top
 
         hbit = (self.hspace - self.stroke_width) / self.mod
