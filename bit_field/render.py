@@ -524,19 +524,38 @@ class Renderer(object):
                 grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
                 grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
                 if 'name' in e:
+                    name = str(e['name'])
+                    lines = name.split('\n')
                     mid_x = (x1 + x2_outer) / 2
-                    mid_y = (top_y + bottom_y) / 2 + self.fontsize / 2
+                    center_y = (top_y + bottom_y) / 2
                     text_color = e.get('font_color', 'black')
-                    grp.append(['text', {
+                    text_attrs = {
                         'x': mid_x,
-                        'y': mid_y,
                         'font-size': self.fontsize,
                         'font-family': self.fontfamily,
                         'font-weight': self.fontweight,
                         'text-anchor': 'middle',
                         'fill': text_color,
                         'stroke': 'none'
-                    }, e['name']])
+                    }
+                    if len(lines) == 1:
+                        text_attrs['y'] = center_y + self.fontsize / 2
+                        grp.append(['text', text_attrs] + tspan(lines[0]))
+                    else:
+                        line_height = self.fontsize * 1.2
+                        first_line_y = center_y + self.fontsize / 2 - line_height * (len(lines) - 1) / 2
+                        text_element = ['text', text_attrs]
+                        for i, line in enumerate(lines):
+                            spans = tspan(line)
+                            if not spans:
+                                spans = [['tspan', {}, '']]
+                            for j, span in enumerate(spans):
+                                span_attrs = dict(span[1])
+                                if j == 0:
+                                    span_attrs['x'] = mid_x
+                                    span_attrs['y'] = first_line_y + line_height * i
+                                text_element.append(['tspan', span_attrs, span[2]])
+                        grp.append(text_element)
                 res.append(grp)
                 bit_pos = end
         return res
