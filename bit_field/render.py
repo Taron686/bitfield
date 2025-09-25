@@ -102,6 +102,8 @@ def typeColor(t):
 
 
 class Renderer(object):
+    ARROW_JUMP_HEAD_LENGTH = 10
+
     def __init__(self,
                  vspace=80,
                  hspace=640,
@@ -118,6 +120,7 @@ class Renderer(object):
                  uneven=False,
                  legend=None,
                  label_lines=None,
+                 arrow_jumps=None,
                  grid_draw=True,
                  types=None,
                  **extra_kwargs):
@@ -155,6 +158,11 @@ class Renderer(object):
             self.label_lines = [label_lines]
         else:
             self.label_lines = label_lines
+        arrow_jumps = extra_kwargs.pop('arrow_jumps', arrow_jumps)
+        if arrow_jumps is not None and not isinstance(arrow_jumps, list):
+            self.arrow_jumps = [arrow_jumps]
+        else:
+            self.arrow_jumps = arrow_jumps
         types = extra_kwargs.pop('types', types)
         if extra_kwargs:
             unexpected = ', '.join(sorted(extra_kwargs))
@@ -195,51 +203,106 @@ class Renderer(object):
                 self.label_lines.extend(collected)
         return filtered
 
+    def _extract_arrow_jumps(self, desc):
+        collected = []
+        filtered = []
+        for e in desc:
+            if isinstance(e, dict) and 'arrow_jump' in e:
+                collected.append(e)
+            else:
+                filtered.append(e)
+        if collected:
+            if self.arrow_jumps is None:
+                self.arrow_jumps = collected
+            else:
+                self.arrow_jumps.extend(collected)
+        return filtered
+
     def _label_lines_margins(self):
         self.cage_width = self.hspace / self.mod
         self.label_gap = self.cage_width / 2
         self.label_width = self.cage_width
         left_margin = right_margin = 0
 
+        label_items = self.label_lines or []
+        arrow_items = self.arrow_jumps or []
+
         for side in ('left', 'right'):
             active = []
-            for cfg in [c for c in self.label_lines if c['layout'] == side]:
-                font_size = cfg.get('font_size', self.fontsize)
-                lines = cfg['label_lines'].split('\n')
-                max_text_len = max((len(line) for line in lines), default=0)
-                text_length = max_text_len * font_size * 0.6
-                angle = cfg.get('angle', 0) or 0
-                normalized = angle % 360
-                is_vertical = math.isclose(normalized % 180, 90, abs_tol=1e-6)
-                text_gap = 20 if is_vertical else self.label_gap
-                angle_rad = math.radians(angle)
-                horizontal_extent = (
-                    abs(text_length * math.cos(angle_rad))
-                    + font_size * abs(math.sin(angle_rad))
-                )
-                margin = (
-                    self.label_width / 2
-                    + self.label_gap
-                    + text_gap
-                    + horizontal_extent
-                )
-                cfg['_margin'] = margin
-                active = [a for a in active if a['end'] >= cfg['start_line']]
-                offset = 0
-                for a in active:
-                    offset = max(offset, a['offset'] + a['margin'])
-                cfg['_offset'] = offset
-                active.append({'end': cfg['end_line'], 'offset': offset, 'margin': margin})
-                if side == 'left':
-                    left_margin = max(left_margin, offset + margin)
+            side_items = []
+            side_items.extend(('label', cfg) for cfg in label_items if cfg['layout'] == side)
+            side_items.extend(('arrow', cfg) for cfg in arrow_items if cfg['layout'] == side)
+            for kind, cfg in side_items:
+                if kind == 'label':
+                    font_size = cfg.get('font_size', self.fontsize)
+                    lines = cfg['label_lines'].split('\n')
+                    max_text_len = max((len(line) for line in lines), default=0)
+                    text_length = max_text_len * font_size * 0.6
+                    angle = cfg.get('angle', 0) or 0
+                    normalized = angle % 360
+                    is_vertical = math.isclose(normalized % 180, 90, abs_tol=1e-6)
+                    text_gap = 20 if is_vertical else self.label_gap
+                    angle_rad = math.radians(angle)
+                    horizontal_extent = (
+                        abs(text_length * math.cos(angle_rad))
+                        + font_size * abs(math.sin(angle_rad))
+                    )
+                    margin = (
+                        self.label_width / 2
+                        + self.label_gap
+                        + text_gap
+                        + horizontal_extent
+                    )
+                    cfg_start = cfg['start_line']
+                    cfg_end = cfg['end_line']
+                    cfg['_margin'] = margin
+                    active = [a for a in active if a['end'] >= cfg_start]
+                    offset = 0
+                    for a in active:
+                        offset = max(offset, a['offset'] + a['margin'])
+                    cfg['_offset'] = offset
+                    active.append({'end': cfg_end, 'offset': offset, 'margin': margin})
+                    if side == 'left':
+                        left_margin = max(left_margin, offset + margin)
+                    else:
+                        right_margin = max(right_margin, offset + margin)
                 else:
-                    right_margin = max(right_margin, offset + margin)
+                    stroke_width = cfg.get('stroke_width', 3)
+                    base_outer = cfg.get('outer_distance', 10)
+                    outer_distance = min(base_outer, 10)
+                    arrow_head_length = self._arrow_jump_head_extent(stroke_width)
+
+                    if cfg['layout'] == 'left':
+                        end_x = self._bit_column_x(cfg['end_bit'])
+                        final_x = end_x - arrow_head_length
+                        if final_x <= -outer_distance:
+                            max_outer = max(outer_distance, cfg.get('max_outer_distance', 25))
+                            required = arrow_head_length - end_x + stroke_width
+                            outer_distance = min(max_outer, max(outer_distance, required))
+                    else:
+                        end_x = self._bit_column_x(cfg['end_bit'])
+                        final_x = end_x + arrow_head_length
+                        limit = self.hspace + outer_distance
+                        if final_x >= limit:
+                            max_outer = max(outer_distance, cfg.get('max_outer_distance', 25))
+                            required = final_x - self.hspace + stroke_width
+                            outer_distance = min(max_outer, max(outer_distance, required))
+
+                    margin = outer_distance + stroke_width / 2
+                    cfg['_outer_distance'] = outer_distance
+                    cfg['_margin'] = margin
+                    cfg['_offset'] = 0
+                    if side == 'left':
+                        left_margin = max(left_margin, margin)
+                    else:
+                        right_margin = max(right_margin, margin)
 
         self.label_margin = max(left_margin, right_margin)
         return left_margin, right_margin
 
     def render(self, desc):
         desc = self._extract_label_lines(desc)
+        desc = self._extract_arrow_jumps(desc)
 
         self.total_bits = self.get_total_bits(desc)
         if self.lanes is None:
@@ -268,6 +331,8 @@ class Renderer(object):
 
         if self.label_lines is not None:
             self._validate_label_lines()
+        if self.arrow_jumps is not None:
+            self._validate_arrow_jumps()
 
         max_attr_count = 0
         for e in desc:
@@ -291,8 +356,28 @@ class Renderer(object):
         self.label_gap = 0
         self.label_width = 0
         self.cage_width = 0 
-        if self.label_lines is not None:
+        if self.label_lines is not None or self.arrow_jumps is not None:
             left_margin, right_margin = self._label_lines_margins()
+
+            has_left = any(
+                cfg.get('layout') == 'left'
+                for cfg in (self.label_lines or [])
+            ) or any(
+                cfg.get('layout') == 'left'
+                for cfg in (self.arrow_jumps or [])
+            )
+            has_right = any(
+                cfg.get('layout') == 'right'
+                for cfg in (self.label_lines or [])
+            ) or any(
+                cfg.get('layout') == 'right'
+                for cfg in (self.arrow_jumps or [])
+            )
+
+            if has_left:
+                left_margin += 5
+            if has_right:
+                right_margin += 5
 
         canvas_width = self.hspace + left_margin + right_margin
         view_min_x = -left_margin
@@ -312,6 +397,20 @@ class Renderer(object):
                          'refX': 10,
                          'refY': 3,
                          'orient': 'auto-start-reverse',
+                         'markerUnits': 'strokeWidth'
+                     },
+                      ['path', {
+                          'd': 'M0,0 L10,3 L0,6 Z',
+                          'fill': 'black'
+                      }]
+                     ],
+                     ['marker', {
+                         'id': 'arrow-jump-head',
+                         'markerWidth': 10,
+                         'markerHeight': 6,
+                         'refX': 0,
+                         'refY': 3,
+                         'orient': 'auto',
                          'markerUnits': 'strokeWidth'
                      },
                       ['path', {
@@ -338,6 +437,10 @@ class Renderer(object):
         if self.label_lines is not None:
             for cfg in self.label_lines:
                 res.append(self._label_lines_element(cfg))
+        if self.arrow_jumps:
+            arrow_group = self._arrow_jump_elements()
+            if arrow_group is not None:
+                res.append(arrow_group)
         return res
 
     def _validate_label_lines(self):
@@ -354,7 +457,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
+            if end - start <= 1:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
@@ -363,6 +466,42 @@ class Renderer(object):
                 raise ValueError('label_lines angle must be a number')
             if 'Reserved' in cfg and not isinstance(cfg['Reserved'], bool):
                 raise ValueError('label_lines Reserved must be a boolean')
+
+    def _validate_arrow_jumps(self):
+        required = ['arrow_jump', 'start_line', 'jump_to_first', 'jump_to_second', 'end_bit', 'layout']
+        for cfg in self.arrow_jumps:
+            for key in required:
+                if key not in cfg:
+                    raise ValueError('arrow_jump missing required key: {}'.format(key))
+            start = cfg['start_line']
+            jump_first = cfg['jump_to_first']
+            jump_second = cfg['jump_to_second']
+            for value_name, value in (
+                ('start_line', start),
+                ('jump_to_first', jump_first),
+                ('jump_to_second', jump_second),
+            ):
+                if not isinstance(value, int):
+                    raise ValueError(f'arrow_jump {value_name} must be an integer')
+                if value < 0:
+                    raise ValueError(f'arrow_jump {value_name} must be non-negative')
+                if value >= self.lanes:
+                    raise ValueError('arrow_jump {} exceeds number of lanes'.format(value_name))
+            for bit_name in ('arrow_jump', 'end_bit'):
+                bit_value = cfg[bit_name]
+                if not isinstance(bit_value, int):
+                    raise ValueError(f'arrow_jump {bit_name} must be an integer')
+                if bit_value < 0 or bit_value >= self.mod:
+                    raise ValueError(f'arrow_jump {bit_name} must be between 0 and {self.mod - 1}')
+            layout = cfg['layout']
+            if layout not in ('left', 'right'):
+                raise ValueError('arrow_jump layout must be "left" or "right"')
+            if 'stroke_width' in cfg:
+                stroke_width = cfg['stroke_width']
+                if not isinstance(stroke_width, (int, float)):
+                    raise ValueError('arrow_jump stroke_width must be a number')
+                if stroke_width <= 0:
+                    raise ValueError('arrow_jump stroke_width must be positive')
 
     def _label_lines_element(self, cfg):
         text = cfg['label_lines']
@@ -452,6 +591,72 @@ class Renderer(object):
         ]
 
         return ['g', {}, bracket, text_element]
+
+    def _bit_column_x(self, bit):
+        step = self.hspace / self.mod
+        if self.vflip:
+            position = bit + 0.5
+        else:
+            position = self.mod - bit - 0.5
+        return step * position
+
+    def _line_center_y(self, line, base_y):
+        return base_y + self.vlane * line + self.vlane / 2
+
+    def _arrow_jump_head_extent(self, stroke_width):
+        return self.ARROW_JUMP_HEAD_LENGTH * stroke_width
+
+    def _arrow_jump_elements(self):
+        if not self.arrow_jumps:
+            return None
+
+        base_y = self.fontsize * 1.2
+        if self.legend:
+            base_y += self.fontsize * 1.2
+
+        group = ['g', {'class': 'arrow-jumps'}]
+
+        for cfg in self.arrow_jumps:
+            stroke_width = cfg.get('stroke_width', 3)
+            outer_distance = cfg.get('_outer_distance', 10)
+            if cfg['layout'] == 'left':
+                outer_x = -outer_distance
+            else:
+                outer_x = self.hspace + outer_distance
+
+            start_x = self._bit_column_x(cfg['arrow_jump'])
+            end_x = self._bit_column_x(cfg['end_bit'])
+
+            start_y = self._line_center_y(cfg['start_line'], base_y)
+            first_y = self._line_center_y(cfg['jump_to_first'], base_y)
+            second_y = self._line_center_y(cfg['jump_to_second'], base_y)
+
+            arrow_head_length = self._arrow_jump_head_extent(stroke_width)
+            if cfg['layout'] == 'left':
+                final_x = end_x - arrow_head_length
+            else:
+                final_x = end_x + arrow_head_length
+
+            points = [
+                (start_x, start_y),
+                (start_x, first_y),
+                (outer_x, first_y),
+                (outer_x, second_y),
+                (final_x, second_y),
+            ]
+
+            commands = [f"M{points[0][0]},{points[0][1]}"]
+            commands.extend(f"L{x},{y}" for x, y in points[1:])
+            path = ['path', {
+                'd': ' '.join(commands),
+                'stroke': 'black',
+                'stroke-width': stroke_width,
+                'fill': 'none',
+                'marker-end': 'url(#arrow-jump-head)'
+            }]
+            group.append(path)
+
+        return group
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]
