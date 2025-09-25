@@ -57,12 +57,12 @@ def test_arrow_jump_from_descriptor():
     assert attrs["stroke"] == "black"
 
     points = _parse_points(arrow)
-    assert points[0][0] < 0
+    assert points[0][0] == pytest.approx(0)
     assert points[0][1] == pytest.approx(_line_center(1))
     assert points[1][1] == pytest.approx(_line_center(2))
     assert points[2][1] == pytest.approx(_line_center(3))
     assert points[3][0] == pytest.approx(0)
-    target_x = ((25 % 8) + 0.5) * (640 / 8)
+    target_x = 640 - ((25 % 8) + 0.5) * (640 / 8)
     assert points[-1][0] == pytest.approx(target_x)
     assert points[-1][1] == pytest.approx(_line_center(3))
 
@@ -86,9 +86,9 @@ def test_arrow_jump_custom_stroke_right_layout():
     assert attrs["marker-end"] == "url(#arrow)"
 
     points = _parse_points(arrow)
-    assert points[0][0] > 640
+    assert points[0][0] == pytest.approx(640)
     assert points[-2][0] == pytest.approx(640)
-    target_x = ((5 % 8) + 0.5) * (640 / 8)
+    target_x = 640 - ((5 % 8) + 0.5) * (640 / 8)
     assert points[-1][0] == pytest.approx(target_x)
 
 
@@ -117,3 +117,38 @@ def test_arrow_jump_invalid_layout():
 
     with pytest.raises(ValueError):
         render(reg, bits=8, arrow_jumps=cfg)
+
+
+def test_arrow_jump_respects_vflip_orientation():
+    reg = _make_reg()
+    cfg = {
+        "arrow_jump": 5,
+        "start_line": 0,
+        "layout": "left",
+        "end_bit": 5,
+    }
+
+    res = render(reg, bits=8, vflip=True, arrow_jumps=cfg)
+    arrow = _find_arrow(res)
+    assert arrow is not None
+
+    points = _parse_points(arrow)
+    expected_x = ((5 % 8) + 0.5) * (640 / 8)
+    assert points[-1][0] == pytest.approx(expected_x)
+
+
+def test_arrow_jump_absolute_target_respects_hflip():
+    reg = _make_reg()
+    cfg = {
+        "arrow_jump": 9,
+        "start_line": 0,
+        "layout": "left",
+        "end_bit": 9,
+    }
+
+    res = render(reg, bits=8, hflip=True, arrow_jumps=cfg)
+    arrow = _find_arrow(res)
+    assert arrow is not None
+
+    points = _parse_points(arrow)
+    assert points[-1][1] == pytest.approx(_line_center(1))

@@ -539,15 +539,9 @@ class Renderer(object):
 
         if 'start_offset' in cfg:
             offset = cfg['start_offset']
-            if layout == 'left':
-                start_x = self.view_min_x + offset
-            else:
-                start_x = self.view_min_x + self.hspace + offset
+            start_x = (0 if layout == 'left' else self.hspace) + offset
         else:
-            if layout == 'left':
-                start_x = min(-10, self.view_min_x + 10)
-            else:
-                start_x = self.view_min_x + self.hspace + 10
+            start_x = 0 if layout == 'left' else self.hspace
 
         edge_x = 0 if layout == 'left' else self.hspace
         route_lines = [cfg['start_line']]
@@ -567,8 +561,12 @@ class Renderer(object):
         points.append((edge_x, current_y))
 
         if target_bit >= self.mod and target_bit < self.total_bits:
-            target_lane = target_bit // self.mod
             bit_index = target_bit % self.mod
+            if len(route_lines) == 1:
+                raw_lane = target_bit // self.mod
+                target_lane = raw_lane if self.hflip else self.lanes - raw_lane - 1
+            else:
+                target_lane = route_lines[-1]
         else:
             target_lane = route_lines[-1]
             bit_index = target_bit % self.mod
@@ -579,7 +577,7 @@ class Renderer(object):
             current_y = target_y
 
         bit_x = (bit_index + 0.5) * step
-        if self.hflip:
+        if not self.vflip:
             bit_x = self.hspace - bit_x
         points.append((bit_x, current_y))
 
