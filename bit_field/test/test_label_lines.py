@@ -1,5 +1,6 @@
 import pytest
 from .. import render
+from ..render import Renderer
 
 
 def _make_reg(bits=8, lanes=8):
@@ -31,6 +32,19 @@ def _find_line(node, x1, x2, y1, y2, tol=1e-6):
                     return node
         for child in node[1:]:
             res = _find_line(child, x1, x2, y1, y2, tol)
+            if res:
+                return res
+    return None
+
+
+def _find_path(node, predicate):
+    if isinstance(node, list):
+        if node and node[0] == "path":
+            attrs = node[1]
+            if predicate(attrs):
+                return node
+        for child in node[1:]:
+            res = _find_path(child, predicate)
             if res:
                 return res
     return None
@@ -226,3 +240,76 @@ def test_label_lines_from_desc_invalid():
     reg.append({"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 1, "layout": "right"})
     with pytest.raises(ValueError):
         render(reg, bits=8)
+
+
+def test_arrow_jump_draws_path_left():
+    reg = _make_reg(lanes=6)
+    cfg = {
+        "arrow_jump": 5,
+        "start_line": 2,
+        "jump_to_first": 3,
+        "layout": "left",
+        "jump_to_second": 5,
+        "end_bit": 5,
+    }
+    renderer = Renderer(bits=8, arrow_jumps=cfg)
+    res = renderer.render(reg)
+
+    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow)")
+    assert path_node is not None
+    attrs = path_node[1]
+    assert attrs["stroke-width"] == 3
+
+    step = renderer.hspace / renderer.mod
+    base_y = renderer.fontsize * 1.2
+    line_center = lambda line: base_y + renderer.vlane * line + renderer.vlane / 2
+    bit_x = lambda bit: step * (renderer.mod - bit - 0.5)
+    offset = renderer.arrow_jumps[0]["_offset"]
+    margin = renderer.arrow_jumps[0]["_margin"]
+    outer_x = -(offset + margin)
+
+    expected_points = [
+        (bit_x(cfg["arrow_jump"]), line_center(cfg["start_line"])),
+        (bit_x(cfg["arrow_jump"]), line_center(cfg["jump_to_first"])),
+        (outer_x, line_center(cfg["jump_to_first"])),
+        (outer_x, line_center(cfg["jump_to_second"])),
+        (bit_x(cfg["end_bit"]), line_center(cfg["jump_to_second"])),
+    ]
+
+    commands = attrs["d"].split()
+    actual_points = [tuple(map(float, commands[0][1:].split(",")))]
+    actual_points.extend(tuple(map(float, cmd[1:].split(","))) for cmd in commands[1:])
+
+    for actual, expected in zip(actual_points, expected_points):
+        assert actual[0] == pytest.approx(expected[0])
+        assert actual[1] == pytest.approx(expected[1])
+
+
+def test_arrow_jump_updates_viewbox_left_margin():
+    reg = _make_reg(lanes=3)
+    cfg = {
+        "arrow_jump": 2,
+        "start_line": 0,
+        "jump_to_first": 1,
+        "layout": "left",
+        "jump_to_second": 2,
+        "end_bit": 1,
+    }
+    res = render(reg, bits=8, arrow_jumps=cfg)
+    view_min_x = float(res[1]["viewBox"].split()[0])
+    assert view_min_x < 0
+
+
+def test_arrow_jump_from_desc():
+    reg = _make_reg(lanes=4)
+    reg.append({
+        "arrow_jump": 1,
+        "start_line": 0,
+        "jump_to_first": 1,
+        "layout": "right",
+        "jump_to_second": 3,
+        "end_bit": 2,
+    })
+    res = render(reg, bits=8)
+    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow)")
+    assert path_node is not None
