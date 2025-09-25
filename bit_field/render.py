@@ -102,6 +102,8 @@ def typeColor(t):
 
 
 class Renderer(object):
+    ARROW_JUMP_HEAD_LENGTH = 10
+
     def __init__(self,
                  vspace=80,
                  hspace=640,
@@ -382,6 +384,20 @@ class Renderer(object):
                           'd': 'M0,0 L10,3 L0,6 Z',
                           'fill': 'black'
                       }]
+                     ],
+                     ['marker', {
+                         'id': 'arrow-jump-head',
+                         'markerWidth': 10,
+                         'markerHeight': 6,
+                         'refX': 0,
+                         'refY': 3,
+                         'orient': 'auto',
+                         'markerUnits': 'strokeWidth'
+                     },
+                      ['path', {
+                          'd': 'M0,0 L10,3 L0,6 Z',
+                          'fill': 'black'
+                      }]
                      ]]
 
         res.append(arrow_def)
@@ -568,6 +584,9 @@ class Renderer(object):
     def _line_center_y(self, line, base_y):
         return base_y + self.vlane * line + self.vlane / 2
 
+    def _arrow_jump_head_extent(self, stroke_width):
+        return self.ARROW_JUMP_HEAD_LENGTH * stroke_width
+
     def _arrow_jump_elements(self):
         if not self.arrow_jumps:
             return None
@@ -593,12 +612,18 @@ class Renderer(object):
             first_y = self._line_center_y(cfg['jump_to_first'], base_y)
             second_y = self._line_center_y(cfg['jump_to_second'], base_y)
 
+            arrow_head_length = self._arrow_jump_head_extent(stroke_width)
+            if cfg['layout'] == 'left':
+                final_x = end_x - arrow_head_length
+            else:
+                final_x = end_x + arrow_head_length
+
             points = [
                 (start_x, start_y),
                 (start_x, first_y),
                 (outer_x, first_y),
                 (outer_x, second_y),
-                (end_x, second_y),
+                (final_x, second_y),
             ]
 
             commands = [f"M{points[0][0]},{points[0][1]}"]
@@ -608,7 +633,7 @@ class Renderer(object):
                 'stroke': 'black',
                 'stroke-width': stroke_width,
                 'fill': 'none',
-                'marker-end': 'url(#arrow)'
+                'marker-end': 'url(#arrow-jump-head)'
             }]
             group.append(path)
 

@@ -255,7 +255,7 @@ def test_arrow_jump_draws_path_left():
     renderer = Renderer(bits=8, arrow_jumps=cfg)
     res = renderer.render(reg)
 
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow)")
+    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
     assert path_node is not None
     attrs = path_node[1]
     assert attrs["stroke-width"] == 3
@@ -269,12 +269,14 @@ def test_arrow_jump_draws_path_left():
     assert renderer.arrow_jumps[0]["_offset"] == 0
     outer_x = -outer_distance
 
+    arrow_head = renderer._arrow_jump_head_extent(float(attrs["stroke-width"]))
+
     expected_points = [
         (bit_x(cfg["arrow_jump"]), line_center(cfg["start_line"])),
         (bit_x(cfg["arrow_jump"]), line_center(cfg["jump_to_first"])),
         (outer_x, line_center(cfg["jump_to_first"])),
         (outer_x, line_center(cfg["jump_to_second"])),
-        (bit_x(cfg["end_bit"]), line_center(cfg["jump_to_second"])),
+        (bit_x(cfg["end_bit"]) - arrow_head, line_center(cfg["jump_to_second"])),
     ]
 
     commands = attrs["d"].split()
@@ -312,5 +314,5 @@ def test_arrow_jump_from_desc():
         "end_bit": 2,
     })
     res = render(reg, bits=8)
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow)")
+    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
     assert path_node is not None
