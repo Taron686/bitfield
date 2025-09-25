@@ -253,22 +253,28 @@ class Renderer(object):
                     )
                     cfg_start = cfg['start_line']
                     cfg_end = cfg['end_line']
-                else:
-                    margin = self.label_gap + self.label_width
                     cfg['_margin'] = margin
-                    cfg_start = min(cfg['start_line'], cfg['jump_to_first'], cfg['jump_to_second'])
-                    cfg_end = max(cfg['start_line'], cfg['jump_to_first'], cfg['jump_to_second'])
-                cfg['_margin'] = margin
-                active = [a for a in active if a['end'] >= cfg_start]
-                offset = 0
-                for a in active:
-                    offset = max(offset, a['offset'] + a['margin'])
-                cfg['_offset'] = offset
-                active.append({'end': cfg_end, 'offset': offset, 'margin': margin})
-                if side == 'left':
-                    left_margin = max(left_margin, offset + margin)
+                    active = [a for a in active if a['end'] >= cfg_start]
+                    offset = 0
+                    for a in active:
+                        offset = max(offset, a['offset'] + a['margin'])
+                    cfg['_offset'] = offset
+                    active.append({'end': cfg_end, 'offset': offset, 'margin': margin})
+                    if side == 'left':
+                        left_margin = max(left_margin, offset + margin)
+                    else:
+                        right_margin = max(right_margin, offset + margin)
                 else:
-                    right_margin = max(right_margin, offset + margin)
+                    stroke_width = cfg.get('stroke_width', 3)
+                    outer_distance = min(10, cfg.get('outer_distance', 10))
+                    margin = outer_distance + stroke_width / 2
+                    cfg['_outer_distance'] = outer_distance
+                    cfg['_margin'] = margin
+                    cfg['_offset'] = 0
+                    if side == 'left':
+                        left_margin = max(left_margin, margin)
+                    else:
+                        right_margin = max(right_margin, margin)
 
         self.label_margin = max(left_margin, right_margin)
         return left_margin, right_margin
@@ -574,12 +580,11 @@ class Renderer(object):
 
         for cfg in self.arrow_jumps:
             stroke_width = cfg.get('stroke_width', 3)
-            margin = cfg.get('_margin', self.label_gap + self.label_width if self.label_gap else self.hspace / self.mod)
-            offset = cfg.get('_offset', 0)
+            outer_distance = cfg.get('_outer_distance', 10)
             if cfg['layout'] == 'left':
-                outer_x = -(offset + margin)
+                outer_x = -outer_distance
             else:
-                outer_x = self.hspace + offset + margin
+                outer_x = self.hspace + outer_distance
 
             start_x = self._bit_column_x(cfg['arrow_jump'])
             end_x = self._bit_column_x(cfg['end_bit'])

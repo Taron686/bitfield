@@ -264,9 +264,10 @@ def test_arrow_jump_draws_path_left():
     base_y = renderer.fontsize * 1.2
     line_center = lambda line: base_y + renderer.vlane * line + renderer.vlane / 2
     bit_x = lambda bit: step * (renderer.mod - bit - 0.5)
-    offset = renderer.arrow_jumps[0]["_offset"]
-    margin = renderer.arrow_jumps[0]["_margin"]
-    outer_x = -(offset + margin)
+    outer_distance = renderer.arrow_jumps[0]["_outer_distance"]
+    assert outer_distance == pytest.approx(10)
+    assert renderer.arrow_jumps[0]["_offset"] == 0
+    outer_x = -outer_distance
 
     expected_points = [
         (bit_x(cfg["arrow_jump"]), line_center(cfg["start_line"])),
@@ -297,7 +298,7 @@ def test_arrow_jump_updates_viewbox_left_margin():
     }
     res = render(reg, bits=8, arrow_jumps=cfg)
     view_min_x = float(res[1]["viewBox"].split()[0])
-    assert view_min_x < 0
+    assert view_min_x == pytest.approx(-16.5)
 
 
 def test_arrow_jump_from_desc():
