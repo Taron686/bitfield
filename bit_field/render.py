@@ -406,7 +406,7 @@ class Renderer(object):
                 raise ValueError('arrow_jump start_line must be an integer')
             if start_line < 0 or start_line >= self.lanes:
                 raise ValueError('arrow_jump start_line out of range')
-            if arrow_bit < 0 or arrow_bit >= self.total_bits:
+            if arrow_bit < 0 or (arrow_bit >= self.total_bits and arrow_bit >= self.mod):
                 raise ValueError('arrow_jump value out of range')
             if layout not in ('left', 'right'):
                 raise ValueError('arrow_jump layout must be "left" or "right"')
@@ -421,7 +421,7 @@ class Renderer(object):
                 end_bit = cfg['end_bit']
                 if not isinstance(end_bit, int):
                     raise ValueError('arrow_jump end_bit must be an integer')
-                if end_bit < 0 or end_bit >= self.total_bits:
+                if end_bit < 0 or (end_bit >= self.total_bits and end_bit >= self.mod):
                     raise ValueError('arrow_jump end_bit out of range')
             if 'stroke_width' in cfg and not isinstance(cfg['stroke_width'], (int, float)):
                 raise ValueError('arrow_jump stroke_width must be a number')
@@ -550,25 +550,34 @@ class Renderer(object):
                 start_x = self.view_min_x + self.hspace + 10
 
         edge_x = 0 if layout == 'left' else self.hspace
-        current_y = line_center(cfg['start_line'])
-        points = [(start_x, current_y)]
-
+        route_lines = [cfg['start_line']]
         for key in ('jump_to_first', 'jump_to_second'):
             if key in cfg:
-                next_y = line_center(cfg[key])
-                if abs(next_y - current_y) > 1e-6:
-                    points.append((start_x, next_y))
-                    current_y = next_y
+                route_lines.append(cfg[key])
+
+        current_y = line_center(route_lines[0])
+        points = [(start_x, current_y)]
+
+        for line in route_lines[1:]:
+            next_y = line_center(line)
+            if abs(next_y - current_y) > 1e-6:
+                points.append((start_x, next_y))
+                current_y = next_y
 
         points.append((edge_x, current_y))
 
-        target_lane = target_bit // self.mod
+        if target_bit >= self.mod and target_bit < self.total_bits:
+            target_lane = target_bit // self.mod
+            bit_index = target_bit % self.mod
+        else:
+            target_lane = route_lines[-1]
+            bit_index = target_bit % self.mod
+
         target_y = line_center(target_lane)
         if abs(target_y - current_y) > 1e-6:
             points.append((edge_x, target_y))
             current_y = target_y
 
-        bit_index = target_bit % self.mod
         bit_x = (bit_index + 0.5) * step
         if self.hflip:
             bit_x = self.hspace - bit_x
