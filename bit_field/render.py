@@ -1,7 +1,7 @@
 from .tspan import tspan
 import colorsys
+import math
 import string
-
 
 DEFAULT_TYPE_COLOR = "rgb(229, 229, 229)"
 
@@ -208,7 +208,21 @@ class Renderer(object):
                 lines = cfg['label_lines'].split('\n')
                 max_text_len = max((len(line) for line in lines), default=0)
                 text_length = max_text_len * font_size * 0.6
-                margin = self.label_width / 2 + 2 * self.label_gap + text_length
+                angle = cfg.get('angle', 0) or 0
+                normalized = angle % 360
+                is_vertical = math.isclose(normalized % 180, 90, abs_tol=1e-6)
+                text_gap = 20 if is_vertical else self.label_gap
+                angle_rad = math.radians(angle)
+                horizontal_extent = (
+                    abs(text_length * math.cos(angle_rad))
+                    + font_size * abs(math.sin(angle_rad))
+                )
+                margin = (
+                    self.label_width / 2
+                    + self.label_gap
+                    + text_gap
+                    + horizontal_extent
+                )
                 cfg['_margin'] = margin
                 active = [a for a in active if a['end'] >= cfg['start_line']]
                 offset = 0
@@ -340,7 +354,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 2:
+            if end - start < 0:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
@@ -369,22 +383,29 @@ class Renderer(object):
             x = -(gap + width / 2 + offset)
             left = x - width / 2
             right = x + width / 2
-            text_x = x - gap
             anchor = 'end'
         else:
             x = self.hspace + gap + width / 2 + offset
             left = x - width / 2
             right = x + width / 2
-            text_x = x + gap
             anchor = 'start'
 
         lines = text.split('\n')
         max_text_len = max((len(line) for line in lines), default=0)
         text_length = max_text_len * font_size * 0.6
-        angle = cfg.get('angle', 0)
+        angle = cfg.get('angle', 0) or 0
+        normalized = angle % 360
+        is_vertical = math.isclose(normalized % 180, 90, abs_tol=1e-6)
+        text_gap = 20 if is_vertical else gap
+        arrow_x = left + self.cage_width / 2
+        if layout == 'left':
+            text_x = arrow_x - text_gap
+        else:
+            text_x = arrow_x + text_gap
         if angle:
-            text_x += (-text_length / 2) if layout == 'left' else (text_length / 2)
             anchor = 'middle'
+            if not is_vertical:
+                text_x += (-text_length / 2) if layout == 'left' else (text_length / 2)
         reserved_offset = self.vlane * 0.2 if cfg.get('Reserved') else 0
         text_attrs = {
             'x': text_x,
