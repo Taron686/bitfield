@@ -268,7 +268,26 @@ class Renderer(object):
                         right_margin = max(right_margin, offset + margin)
                 else:
                     stroke_width = cfg.get('stroke_width', 3)
-                    outer_distance = min(10, cfg.get('outer_distance', 10))
+                    base_outer = cfg.get('outer_distance', 10)
+                    outer_distance = min(base_outer, 10)
+                    arrow_head_length = self._arrow_jump_head_extent(stroke_width)
+
+                    if cfg['layout'] == 'left':
+                        end_x = self._bit_column_x(cfg['end_bit'])
+                        final_x = end_x - arrow_head_length
+                        if final_x <= -outer_distance:
+                            max_outer = max(outer_distance, cfg.get('max_outer_distance', 25))
+                            required = arrow_head_length - end_x + stroke_width
+                            outer_distance = min(max_outer, max(outer_distance, required))
+                    else:
+                        end_x = self._bit_column_x(cfg['end_bit'])
+                        final_x = end_x + arrow_head_length
+                        limit = self.hspace + outer_distance
+                        if final_x >= limit:
+                            max_outer = max(outer_distance, cfg.get('max_outer_distance', 25))
+                            required = final_x - self.hspace + stroke_width
+                            outer_distance = min(max_outer, max(outer_distance, required))
+
                     margin = outer_distance + stroke_width / 2
                     cfg['_outer_distance'] = outer_distance
                     cfg['_margin'] = margin

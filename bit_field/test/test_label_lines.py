@@ -316,3 +316,32 @@ def test_arrow_jump_from_desc():
     res = render(reg, bits=8)
     path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
     assert path_node is not None
+
+
+def test_arrow_jump_leftmost_end_bit_extends_margin_for_direction():
+    reg = _make_reg(bits=32, lanes=6)
+    cfg = {
+        "arrow_jump": 5,
+        "start_line": 2,
+        "jump_to_first": 3,
+        "layout": "left",
+        "jump_to_second": 5,
+        "end_bit": 0,
+    }
+    renderer = Renderer(bits=32, arrow_jumps=cfg, vflip=True)
+    res = renderer.render(reg)
+
+    arrow_cfg = renderer.arrow_jumps[0]
+    assert arrow_cfg["_outer_distance"] == pytest.approx(23)
+
+    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    assert path_node is not None
+    attrs = path_node[1]
+
+    commands = attrs["d"].split()
+    points = [tuple(map(float, commands[0][1:].split(",")))]
+    points.extend(tuple(map(float, cmd[1:].split(","))) for cmd in commands[1:])
+
+    outer_x = -arrow_cfg["_outer_distance"]
+    final_point = points[-1]
+    assert final_point[0] > outer_x
