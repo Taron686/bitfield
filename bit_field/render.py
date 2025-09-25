@@ -57,7 +57,8 @@ class Renderer(object):
                  trim=None,
                  uneven=False,
                  legend=None,
-                 label_lines=None):
+                 label_lines=None,
+                 grid_draw=True):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -92,6 +93,7 @@ class Renderer(object):
             self.label_lines = [label_lines]
         else:
             self.label_lines = label_lines
+        self.grid_draw = grid_draw
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -172,9 +174,12 @@ class Renderer(object):
         self.mod = mod
         lsb = 0
         msb = self.total_bits - 1
+        self.hidden_array_ranges = []
         for e in desc:
             if 'array' in e:
                 length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                if isinstance(e, dict) and e.get('hide_lines'):
+                    self.hidden_array_ranges.append((lsb, lsb + length))
                 lsb += length
                 continue
             if 'bits' not in e:
@@ -229,14 +234,14 @@ class Renderer(object):
                      ['marker', {
                          'id': 'arrow',
                          'markerWidth': 10,
-                         'markerHeight': 10,
+                         'markerHeight': 6,
                          'refX': 10,
-                         'refY': 5,
+                         'refY': 3,
                          'orient': 'auto-start-reverse',
                          'markerUnits': 'strokeWidth'
                      },
                       ['path', {
-                          'd': 'M0,0 L10,5 L0,10 Z',
+                          'd': 'M0,0 L10,3 L0,6 Z',
                           'fill': 'black'
                       }]
                      ]]
@@ -500,9 +505,11 @@ class Renderer(object):
         hlen = (self.hspace / self.mod) * (self.mod - skip_count)
         hpos = 0 if self.vflip else (self.hspace / self.mod) * (skip_count)
 
-        if not self.compact or self.hflip or self.lane_index == 0:
+        bottom_boundary = (self.lane_index + 1) * self.mod
+        if (not self.compact or self.hflip or self.lane_index == 0) and not self._boundary_hidden(bottom_boundary):
             res.append(self.hline(hlen, hpos, self.vlane))  # bottom
-        if not self.compact or not self.hflip or self.lane_index == 0:
+        top_boundary = self.lane_index * self.mod
+        if (not self.compact or not self.hflip or self.lane_index == 0) and not self._boundary_hidden(top_boundary):
             res.append(self.hline(hlen, hpos))  # top
 
         hbit = (self.hspace - self.stroke_width) / self.mod
@@ -520,12 +527,25 @@ class Renderer(object):
             elif any('lsb' in e and e['lsb'] == bit for e in desc):
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
             else:
-                res.append(self.vline((self.vlane / 8),
-                                      lpos * hbit + self.stroke_width / 2))
-                res.append(self.vline((self.vlane / 8),
-                                      lpos * hbit + self.stroke_width / 2, self.vlane * 7 / 8))
+                if self.grid_draw and not self._bit_hidden(bit):
+                    res.append(self.vline((self.vlane / 8),
+                                          lpos * hbit + self.stroke_width / 2))
+                    res.append(self.vline((self.vlane / 8),
+                                          lpos * hbit + self.stroke_width / 2, self.vlane * 7 / 8))
 
         return res
+
+    def _boundary_hidden(self, bit_pos):
+        for start, end in getattr(self, 'hidden_array_ranges', []):
+            if start < bit_pos < end:
+                return True
+        return False
+
+    def _bit_hidden(self, bit_pos):
+        for start, end in getattr(self, 'hidden_array_ranges', []):
+            if start < bit_pos < end:
+                return True
+        return False
 
     def labels(self, desc):
         return ['g', {'text-anchor': 'middle'}, self.labelArr(desc)]
