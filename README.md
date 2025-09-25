@@ -70,6 +70,23 @@ start line when you need to indicate a reserved region:
 Each label is drawn outside the bitfield on the requested side. Labels are
 rendered only if `end_line - start_line >= 2`.
 
+### Arrow jumps
+
+Use an object with an `"arrow_jump"` key to draw a routed arrow from the left
+or right margin towards a specific bit. The basic configuration looks like:
+
+```json
+{"arrow_jump": 10, "start_line": 0, "layout": "left", "end_bit": 18}
+```
+
+The arrow starts at the centre of `start_line`, runs horizontally from the
+selected margin, and finishes at the centre of `end_bit` (defaulting to
+`arrow_jump`). Optional `jump_to_first` and `jump_to_second` values insert extra
+vertical segments to create multi-step paths, and `stroke_width` customises the
+line thickness (default `3`). Arrow jumps can be mixed with field descriptors in
+the same list, allowing you to highlight array gaps and labelled regions
+simultaneously.
+
 ### Array gaps
 
 Use an `{"array": length}` descriptor to draw a wedge representing an

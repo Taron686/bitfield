@@ -118,6 +118,7 @@ class Renderer(object):
                  uneven=False,
                  legend=None,
                  label_lines=None,
+                 arrow_jumps=None,
                  grid_draw=True,
                  types=None,
                  **extra_kwargs):
@@ -155,6 +156,10 @@ class Renderer(object):
             self.label_lines = [label_lines]
         else:
             self.label_lines = label_lines
+        if arrow_jumps is not None and not isinstance(arrow_jumps, list):
+            self.arrow_jumps = [arrow_jumps]
+        else:
+            self.arrow_jumps = arrow_jumps
         types = extra_kwargs.pop('types', types)
         if extra_kwargs:
             unexpected = ', '.join(sorted(extra_kwargs))
@@ -182,10 +187,13 @@ class Renderer(object):
 
     def _extract_label_lines(self, desc):
         collected = []
+        jumps = []
         filtered = []
         for e in desc:
             if isinstance(e, dict) and 'label_lines' in e:
                 collected.append(e)
+            elif isinstance(e, dict) and 'arrow_jump' in e:
+                jumps.append(e)
             else:
                 filtered.append(e)
         if collected:
@@ -193,6 +201,11 @@ class Renderer(object):
                 self.label_lines = collected
             else:
                 self.label_lines.extend(collected)
+        if jumps:
+            if self.arrow_jumps is None:
+                self.arrow_jumps = jumps
+            else:
+                self.arrow_jumps.extend(jumps)
         return filtered
 
     def _label_lines_margins(self):
@@ -268,6 +281,8 @@ class Renderer(object):
 
         if self.label_lines is not None:
             self._validate_label_lines()
+        if self.arrow_jumps is not None:
+            self._validate_arrow_jumps()
 
         max_attr_count = 0
         for e in desc:
@@ -304,6 +319,7 @@ class Renderer(object):
 
         canvas_width = self.hspace + left_margin + right_margin
         view_min_x = -left_margin
+        self.view_min_x = view_min_x
 
         res = ['svg', {
             'xmlns': 'http://www.w3.org/2000/svg',
@@ -346,6 +362,9 @@ class Renderer(object):
         if self.label_lines is not None:
             for cfg in self.label_lines:
                 res.append(self._label_lines_element(cfg))
+        if self.arrow_jumps is not None:
+            for cfg in self.arrow_jumps:
+                res.append(self._arrow_jump_element(cfg))
         return res
 
     def _validate_label_lines(self):
@@ -371,6 +390,43 @@ class Renderer(object):
                 raise ValueError('label_lines angle must be a number')
             if 'Reserved' in cfg and not isinstance(cfg['Reserved'], bool):
                 raise ValueError('label_lines Reserved must be a boolean')
+
+    def _validate_arrow_jumps(self):
+        required = ['arrow_jump', 'start_line', 'layout']
+        for cfg in self.arrow_jumps:
+            for key in required:
+                if key not in cfg:
+                    raise ValueError('arrow_jump missing required key: {}'.format(key))
+            arrow_bit = cfg['arrow_jump']
+            start_line = cfg['start_line']
+            layout = cfg['layout']
+            if not isinstance(arrow_bit, int):
+                raise ValueError('arrow_jump value must be an integer bit index')
+            if not isinstance(start_line, int):
+                raise ValueError('arrow_jump start_line must be an integer')
+            if start_line < 0 or start_line >= self.lanes:
+                raise ValueError('arrow_jump start_line out of range')
+            if arrow_bit < 0 or arrow_bit >= self.total_bits:
+                raise ValueError('arrow_jump value out of range')
+            if layout not in ('left', 'right'):
+                raise ValueError('arrow_jump layout must be "left" or "right"')
+            for key in ('jump_to_first', 'jump_to_second'):
+                if key in cfg:
+                    value = cfg[key]
+                    if not isinstance(value, int):
+                        raise ValueError(f'arrow_jump {key} must be an integer')
+                    if value < 0 or value >= self.lanes:
+                        raise ValueError(f'arrow_jump {key} out of range')
+            if 'end_bit' in cfg:
+                end_bit = cfg['end_bit']
+                if not isinstance(end_bit, int):
+                    raise ValueError('arrow_jump end_bit must be an integer')
+                if end_bit < 0 or end_bit >= self.total_bits:
+                    raise ValueError('arrow_jump end_bit out of range')
+            if 'stroke_width' in cfg and not isinstance(cfg['stroke_width'], (int, float)):
+                raise ValueError('arrow_jump stroke_width must be a number')
+            if 'start_offset' in cfg and not isinstance(cfg['start_offset'], (int, float)):
+                raise ValueError('arrow_jump start_offset must be a number')
 
     def _label_lines_element(self, cfg):
         text = cfg['label_lines']
@@ -460,6 +516,72 @@ class Renderer(object):
         ]
 
         return ['g', {}, bracket, text_element]
+
+    def _arrow_jump_element(self, cfg):
+        layout = cfg['layout']
+        arrow_bit = cfg['arrow_jump']
+        target_bit = cfg.get('end_bit', arrow_bit)
+        stroke_width = cfg.get('stroke_width', 3)
+        color = cfg.get('stroke', 'black')
+        step = self.hspace / self.mod
+        base_y = self.fontsize * 1.2
+        if self.legend:
+            base_y += self.fontsize * 1.2
+
+        def line_center(line):
+            return base_y + self.vlane * (line + 0.5)
+
+        def format_coord(value):
+            text = f"{value:.6f}"
+            if '.' in text:
+                text = text.rstrip('0').rstrip('.')
+            return text
+
+        if 'start_offset' in cfg:
+            offset = cfg['start_offset']
+            if layout == 'left':
+                start_x = self.view_min_x + offset
+            else:
+                start_x = self.view_min_x + self.hspace + offset
+        else:
+            if layout == 'left':
+                start_x = min(-10, self.view_min_x + 10)
+            else:
+                start_x = self.view_min_x + self.hspace + 10
+
+        edge_x = 0 if layout == 'left' else self.hspace
+        current_y = line_center(cfg['start_line'])
+        points = [(start_x, current_y)]
+
+        for key in ('jump_to_first', 'jump_to_second'):
+            if key in cfg:
+                next_y = line_center(cfg[key])
+                if abs(next_y - current_y) > 1e-6:
+                    points.append((start_x, next_y))
+                    current_y = next_y
+
+        points.append((edge_x, current_y))
+
+        target_lane = target_bit // self.mod
+        target_y = line_center(target_lane)
+        if abs(target_y - current_y) > 1e-6:
+            points.append((edge_x, target_y))
+            current_y = target_y
+
+        bit_index = target_bit % self.mod
+        bit_x = (bit_index + 0.5) * step
+        if self.hflip:
+            bit_x = self.hspace - bit_x
+        points.append((bit_x, current_y))
+
+        attrs = {
+            'points': ' '.join(f"{format_coord(x)},{format_coord(y)}" for x, y in points),
+            'fill': 'none',
+            'stroke': color,
+            'stroke-width': stroke_width,
+            'marker-end': 'url(#arrow)'
+        }
+        return ['polyline', attrs]
 
     def legend_items(self):
         items = ['g', {'transform': t(0, self.stroke_width / 2)}]
