@@ -219,14 +219,14 @@ class Renderer(object):
                      ['marker', {
                          'id': 'arrow',
                          'markerWidth': 10,
-                         'markerHeight': 10,
+                         'markerHeight': 6,
                          'refX': 10,
-                         'refY': 5,
+                         'refY': 3,
                          'orient': 'auto-start-reverse',
                          'markerUnits': 'strokeWidth'
                      },
                       ['path', {
-                          'd': 'M0,0 L10,5 L0,10 Z',
+                          'd': 'M0,0 L10,3 L0,6 Z',
                           'fill': 'black'
                       }]
                      ]]
@@ -265,7 +265,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 2:
+            if end - start < 0:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
