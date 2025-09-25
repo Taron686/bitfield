@@ -1,5 +1,6 @@
 from .tspan import tspan
 import colorsys
+import string
 
 
 DEFAULT_TYPE_COLOR = "rgb(229, 229, 229)"
@@ -11,6 +12,21 @@ def t(x, y):
 
 def typeStyle(t):
     return ';fill:' + typeColor(t)
+
+
+def _normalize_color(color):
+    if not isinstance(color, str):
+        return None
+    text = color.strip()
+    if not text:
+        return None
+    if text.startswith('#'):
+        if len(text) == 7 and all(c in string.hexdigits for c in text[1:]):
+            return text
+        return text
+    if len(text) == 6 and all(c in string.hexdigits for c in text):
+        return '#' + text
+    return text
 
 
 def _parse_type_overrides(types):
@@ -25,7 +41,7 @@ def _parse_type_overrides(types):
         color = None
 
         if isinstance(value, dict):
-            color = value.get('color')
+            color = _normalize_color(value.get('color'))
             label = value.get('label')
             if label is not None:
                 aliases.append(label)
@@ -38,7 +54,7 @@ def _parse_type_overrides(types):
             elif aliases_config is not None:
                 aliases.append(aliases_config)
         else:
-            color = value
+            color = _normalize_color(value)
 
         if not isinstance(color, str):
             continue
