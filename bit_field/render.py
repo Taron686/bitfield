@@ -554,7 +554,6 @@ class Renderer(object):
         if 'start_offset' in cfg:
             start_x += cfg['start_offset']
 
-        edge_x = start_x
         route_lines = [cfg['start_line']]
         for key in ('jump_to_first', 'jump_to_second'):
             if key in cfg:
@@ -563,10 +562,18 @@ class Renderer(object):
         current_y = line_center(route_lines[0])
         points = [(start_x, current_y)]
 
+        jump_bit_index = arrow_bit % self.mod
+        jump_x = self._bit_column_center(jump_bit_index)
+        if abs(jump_x - start_x) > 1e-6:
+            points.append((jump_x, current_y))
+            current_x = jump_x
+        else:
+            current_x = start_x
+
         for line in route_lines[1:]:
             next_y = line_center(line)
             if abs(next_y - current_y) > 1e-6:
-                points.append((start_x, next_y))
+                points.append((current_x, next_y))
                 current_y = next_y
 
         if target_bit >= self.mod and target_bit < self.total_bits:
@@ -582,11 +589,12 @@ class Renderer(object):
 
         target_y = line_center(target_lane)
         if abs(target_y - current_y) > 1e-6:
-            points.append((edge_x, target_y))
+            points.append((current_x, target_y))
             current_y = target_y
 
         bit_x = self._bit_column_center(bit_index)
-        points.append((bit_x, current_y))
+        if abs(bit_x - current_x) > 1e-6 or abs(points[-1][1] - current_y) > 1e-6 or abs(points[-1][0] - bit_x) > 1e-6:
+            points.append((bit_x, current_y))
 
         attrs = {
             'points': ' '.join(f"{format_coord(x)},{format_coord(y)}" for x, y in points),
