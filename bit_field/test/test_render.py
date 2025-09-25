@@ -87,3 +87,54 @@ def output_dir():
 def fixture_render_report():
     yield
     render_report()
+
+
+def test_types_config_color_override_by_label():
+    reg = [
+        {"name": "field", "bits": 8, "type": "test"},
+    ]
+    jsonml = render(
+        reg,
+        bits=8,
+        types={"gray": {"color": "#D9D9D9", "label": "test"}},
+    )
+
+    fills = []
+
+    def collect_rect_fills(node):
+        if isinstance(node, list):
+            if node and node[0] == 'rect':
+                fills.append(node[1].get('fill'))
+            for child in node[1:]:
+                collect_rect_fills(child)
+
+    collect_rect_fills(jsonml)
+    assert '#D9D9D9' in fills
+
+
+def test_types_config_color_override_allows_hex_without_hash():
+    reg = [
+        {"name": "field", "bits": 8, "type": "test"},
+    ]
+    jsonml = render(
+        reg,
+        bits=8,
+        types={"gray": {"color": "EBF1DE", "label": "test"}},
+    )
+
+    fills = []
+
+    def collect_rect_fills(node):
+        if isinstance(node, list):
+            if node and node[0] == 'rect':
+                fills.append(node[1].get('fill'))
+            for child in node[1:]:
+                collect_rect_fills(child)
+
+    collect_rect_fills(jsonml)
+    assert '#EBF1DE' in fills
+
+
+def test_types_config_requires_mapping():
+    with pytest.raises(TypeError):
+        render([], types=["not", "a", "mapping"])
