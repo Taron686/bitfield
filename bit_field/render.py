@@ -2,6 +2,9 @@ from .tspan import tspan
 import colorsys
 
 
+DEFAULT_TYPE_COLOR = "rgb(229, 229, 229)"
+
+
 def t(x, y):
     return 'translate({}, {})'.format(x, y)
 
@@ -10,7 +13,45 @@ def typeStyle(t):
     return ';fill:' + typeColor(t)
 
 
-def typeColor(t):
+def _parse_type_overrides(types):
+    if types is None:
+        return {}
+    if not isinstance(types, dict):
+        raise TypeError('types configuration must be a mapping')
+
+    overrides = {}
+    for key, value in types.items():
+        aliases = [key]
+        color = None
+
+        if isinstance(value, dict):
+            color = value.get('color')
+            label = value.get('label')
+            if label is not None:
+                aliases.append(label)
+            value_alias = value.get('value')
+            if value_alias is not None:
+                aliases.append(value_alias)
+            aliases_config = value.get('aliases')
+            if isinstance(aliases_config, (list, tuple, set)):
+                aliases.extend(aliases_config)
+            elif aliases_config is not None:
+                aliases.append(aliases_config)
+        else:
+            color = value
+
+        if not isinstance(color, str):
+            continue
+
+        for alias in aliases:
+            if alias is None:
+                continue
+            overrides[str(alias)] = color
+
+    return overrides
+
+
+def _type_color_value(t, overrides=None):
     styles = {
         '2': 0,
         '3': 80,
@@ -19,25 +60,29 @@ def typeColor(t):
         '6': 126,
         '7': 215,
     }
-    
-    # --- Fall 1: t ist eine Liste ---
+
     if isinstance(t, list):
         if len(t) == 3 and all(isinstance(x, int) and 0 <= x <= 255 for x in t):
             r, g, b = t
             return f"rgb({r}, {g}, {b})"
-        else:
-            # Fehlerhafte Liste -> Standardfarbe
-            return "rgb(229, 229, 229)"
+        return DEFAULT_TYPE_COLOR
 
-    # --- Fall 2: t ist ein Schlüssel im Dictionary ---
+    if overrides:
+        key = str(t)
+        if key in overrides:
+            return overrides[key]
+
     t = str(t)
     if t in styles:
         r, g, b = colorsys.hls_to_rgb(styles[t] / 360, 0.9, 1)
         return "rgb({:.0f}, {:.0f}, {:.0f})".format(r * 255, g * 255, b * 255)
-    elif "#" in t and len(t) == 7:
+    if "#" in t and len(t) == 7:
         return t
-    # --- Standardfarbe für alles andere ---
-    return "rgb(229, 229, 229)"
+    return DEFAULT_TYPE_COLOR
+
+
+def typeColor(t):
+    return _type_color_value(t)
 
 
 class Renderer(object):
@@ -57,7 +102,8 @@ class Renderer(object):
                  uneven=False,
                  legend=None,
                  label_lines=None,
-                 grid_draw=True):
+                 grid_draw=True,
+                 types=None):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -93,6 +139,7 @@ class Renderer(object):
         else:
             self.label_lines = label_lines
         self.grid_draw = grid_draw
+        self.type_overrides = _parse_type_overrides(types)
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -104,6 +151,12 @@ class Renderer(object):
             elif 'bits' in e:
                 lsb += e['bits']
         return lsb
+
+    def type_color(self, value):
+        return _type_color_value(value, self.type_overrides)
+
+    def type_style(self, value):
+        return ';fill:' + self.type_color(value)
 
     def _extract_label_lines(self, desc):
         collected = []
@@ -265,7 +318,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
+            if end - start < 2:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
@@ -367,8 +420,8 @@ class Renderer(object):
                 'x': x,
                 'width': 12,
                 'height': 12,
-                'fill': typeColor(value),
-                'style': 'stroke:#000; stroke-width:' + str(self.stroke_width) + ';' + typeStyle(value)
+                'fill': self.type_color(value),
+                'style': 'stroke:#000; stroke-width:' + str(self.stroke_width) + ';' + self.type_style(value)
             }])
             x += square_padding
             items.append(['text', {
@@ -409,7 +462,7 @@ class Renderer(object):
                 x1 = x1_raw + margin
                 x2 = x2_outer - width
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
-                color = typeColor(e.get('type')) if e.get('type') is not None else 'black'
+                color = self.type_color(e.get('type')) if e.get('type') is not None else 'black'
                 grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
                 # fill the full gap bounds with the type color to avoid transparent edges
                 if e.get('type') is not None:
@@ -419,7 +472,7 @@ class Renderer(object):
                     rect = f"{left},{top_y} {right},{top_y} {right},{bottom_y} {left},{bottom_y}"
                     grp.append(['polygon', {
                         'points': rect,
-                        'fill': typeColor(e['type']),
+                        'fill': self.type_color(e['type']),
                         'stroke': 'none'
                     }])
                 # gap polygon on top, optionally with custom fill
@@ -588,14 +641,14 @@ class Renderer(object):
                 }, ['text', ltextattrs] + tspan(self.trim_text(e['name'], available_space))]
                 names.append(ltext)
             if 'name' not in e or e['type'] is not None:
-                style = typeStyle(e['type'])
+                style = self.type_style(e['type'])
                 blanks.append(['rect', {
                     'style': style,
                     'x': step * (lsb_pos if self.vflip else msb_pos),
                     'y': self.stroke_width / 2,
                     'width': step * (msbm - lsbm + 1),
                     'height': self.vlane - self.stroke_width / 2,
-                    'fill': typeColor(e['type']),
+                    'fill': self.type_color(e['type']),
                 }])
             if 'attr' in e and not self.compact:
                 if isinstance(e['attr'], list):

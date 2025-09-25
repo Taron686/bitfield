@@ -152,6 +152,26 @@ input                           input JSON filename (required)
     
 ]
 ```
+
+Add a `types` mapping inside `config` to override the colours associated with
+field types and to use human-readable labels in your payload:
+
+```json
+{
+  "config": {
+    "bits": 32,
+    "types": {
+      "gray": {
+        "color": "#D9D9D9",
+        "label": "test"
+      }
+    }
+  },
+  "payload": [
+    { "name": "Lorem ipsum dolor", "bits": 32, "type": "test" }
+  ]
+}
+```
 ![Json Example](example/example.svg)
 
 Rendering with the CLI:
