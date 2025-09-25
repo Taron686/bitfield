@@ -35,6 +35,18 @@ def _line_center(line):
     return base_y + vlane * (line + 0.5)
 
 
+def _entry_x(layout='left', bits=8, vflip=False, hspace=640):
+    step = hspace / bits
+    if layout == 'left':
+        entry_bit = bits - 1 if not vflip else 0
+    else:
+        entry_bit = 0 if not vflip else bits - 1
+    center = (entry_bit + 0.5) * step
+    if vflip:
+        return center
+    return hspace - center
+
+
 def test_arrow_jump_from_descriptor():
     reg = _make_reg()
     reg.append(
@@ -57,11 +69,11 @@ def test_arrow_jump_from_descriptor():
     assert attrs["stroke"] == "black"
 
     points = _parse_points(arrow)
-    assert points[0][0] == pytest.approx(0)
+    entry_x = _entry_x("left")
+    assert points[0][0] == pytest.approx(entry_x)
     assert points[0][1] == pytest.approx(_line_center(1))
     assert points[1][1] == pytest.approx(_line_center(2))
     assert points[2][1] == pytest.approx(_line_center(3))
-    assert points[3][0] == pytest.approx(0)
     target_x = 640 - ((25 % 8) + 0.5) * (640 / 8)
     assert points[-1][0] == pytest.approx(target_x)
     assert points[-1][1] == pytest.approx(_line_center(3))
@@ -86,8 +98,8 @@ def test_arrow_jump_custom_stroke_right_layout():
     assert attrs["marker-end"] == "url(#arrow)"
 
     points = _parse_points(arrow)
-    assert points[0][0] == pytest.approx(640)
-    assert points[-2][0] == pytest.approx(640)
+    entry_x = _entry_x("right")
+    assert points[0][0] == pytest.approx(entry_x)
     target_x = 640 - ((5 % 8) + 0.5) * (640 / 8)
     assert points[-1][0] == pytest.approx(target_x)
 
@@ -153,6 +165,8 @@ def test_arrow_jump_respects_vflip_orientation():
     points = _parse_points(arrow)
     expected_x = ((5 % 8) + 0.5) * (640 / 8)
     assert points[-1][0] == pytest.approx(expected_x)
+    entry_x = _entry_x("left", vflip=True)
+    assert points[0][0] == pytest.approx(entry_x)
 
 
 def test_arrow_jump_absolute_target_respects_hflip():
@@ -170,3 +184,25 @@ def test_arrow_jump_absolute_target_respects_hflip():
 
     points = _parse_points(arrow)
     assert points[-1][1] == pytest.approx(_line_center(1))
+
+
+def test_arrow_jump_stays_inside_bitfield():
+    reg = _make_reg()
+    cfg = {
+        "arrow_jump": 5,
+        "start_line": 2,
+        "jump_to_first": 3,
+        "layout": "left",
+        "jump_to_second": 5,
+        "end_bit": 5,
+    }
+
+    res = render(reg, bits=8, arrow_jumps=cfg)
+    arrow = _find_arrow(res)
+    assert arrow is not None
+
+    points = _parse_points(arrow)
+    for x, _ in points:
+        assert 0 <= x <= 640
+    entry_x = _entry_x("left")
+    assert points[0][0] == pytest.approx(entry_x)

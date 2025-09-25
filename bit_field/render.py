@@ -517,13 +517,19 @@ class Renderer(object):
 
         return ['g', {}, bracket, text_element]
 
+    def _bit_column_center(self, bit_index):
+        step = self.hspace / self.mod
+        center = (bit_index + 0.5) * step
+        if self.vflip:
+            return center
+        return self.hspace - center
+
     def _arrow_jump_element(self, cfg):
         layout = cfg['layout']
         arrow_bit = cfg['arrow_jump']
         target_bit = cfg.get('end_bit', arrow_bit)
         stroke_width = cfg.get('stroke_width', 3)
         color = cfg.get('stroke', 'black')
-        step = self.hspace / self.mod
         base_y = self.fontsize * 1.2
         if self.legend:
             base_y += self.fontsize * 1.2
@@ -537,13 +543,18 @@ class Renderer(object):
                 text = text.rstrip('0').rstrip('.')
             return text
 
-        if 'start_offset' in cfg:
-            offset = cfg['start_offset']
-            start_x = (0 if layout == 'left' else self.hspace) + offset
-        else:
-            start_x = 0 if layout == 'left' else self.hspace
+        def edge_entry_x():
+            if layout == 'left':
+                entry_bit = self.mod - 1 if not self.vflip else 0
+            else:
+                entry_bit = 0 if not self.vflip else self.mod - 1
+            return self._bit_column_center(entry_bit)
 
-        edge_x = 0 if layout == 'left' else self.hspace
+        start_x = edge_entry_x()
+        if 'start_offset' in cfg:
+            start_x += cfg['start_offset']
+
+        edge_x = start_x
         route_lines = [cfg['start_line']]
         for key in ('jump_to_first', 'jump_to_second'):
             if key in cfg:
@@ -557,8 +568,6 @@ class Renderer(object):
             if abs(next_y - current_y) > 1e-6:
                 points.append((start_x, next_y))
                 current_y = next_y
-
-        points.append((edge_x, current_y))
 
         if target_bit >= self.mod and target_bit < self.total_bits:
             bit_index = target_bit % self.mod
@@ -576,9 +585,7 @@ class Renderer(object):
             points.append((edge_x, target_y))
             current_y = target_y
 
-        bit_x = (bit_index + 0.5) * step
-        if not self.vflip:
-            bit_x = self.hspace - bit_x
+        bit_x = self._bit_column_center(bit_index)
         points.append((bit_x, current_y))
 
         attrs = {
