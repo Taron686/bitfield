@@ -73,14 +73,17 @@ rendered only if `end_line - start_line >= 2`.
 ### Arrow jumps
 
 Use an object with an `"arrow_jump"` key to draw a routed arrow from the left
-or right margin towards a specific bit column. The basic configuration looks like:
+or right margin towards a specific bit column. The `arrow_jump` value identifies
+the bit column to hit, while `start_line` picks the lane centre the arrow begins
+from. The basic configuration looks like:
 
 ```json
 {"arrow_jump": 10, "start_line": 0, "layout": "left", "end_bit": 18}
 ```
 
 The arrow starts at the centre of `start_line`, runs horizontally from the
-selected margin, and finishes at the centre of the target bit. When the
+selected margin, and finishes at the centre of the target bit. When `end_bit`
+is omitted the arrow lands on the bit column given by `arrow_jump`. When the
 provided bit index is less than the lane width (the renderer's `bits`
 configuration), it is treated as a column number within the final lane reached
 by the arrow path (the last of `start_line`, `jump_to_first`, and

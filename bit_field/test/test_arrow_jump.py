@@ -92,6 +92,24 @@ def test_arrow_jump_custom_stroke_right_layout():
     assert points[-1][0] == pytest.approx(target_x)
 
 
+def test_arrow_jump_default_target_uses_arrow_value():
+    reg = _make_reg()
+    cfg = {
+        "arrow_jump": 6,
+        "start_line": 2,
+        "layout": "left",
+    }
+
+    res = render(reg, bits=8, arrow_jumps=cfg)
+    arrow = _find_arrow(res)
+    assert arrow is not None
+
+    points = _parse_points(arrow)
+    target_x = 640 - ((6 % 8) + 0.5) * (640 / 8)
+    assert points[-1][0] == pytest.approx(target_x)
+    assert points[-1][1] == pytest.approx(_line_center(2))
+
+
 def test_arrow_jump_relative_bit_uses_last_jump_lane():
     reg = _make_reg()
     cfg = {
