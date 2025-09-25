@@ -294,6 +294,14 @@ class Renderer(object):
         if self.label_lines is not None:
             left_margin, right_margin = self._label_lines_margins()
 
+            has_left = any(cfg.get('layout') == 'left' for cfg in self.label_lines)
+            has_right = any(cfg.get('layout') == 'right' for cfg in self.label_lines)
+
+            if has_left:
+                left_margin += 5
+            if has_right:
+                right_margin += 5
+
         canvas_width = self.hspace + left_margin + right_margin
         view_min_x = -left_margin
 
@@ -354,7 +362,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
+            if end - start <= 1:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):

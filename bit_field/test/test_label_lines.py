@@ -68,7 +68,7 @@ def test_label_lines_draws_text_outside_left():
     root = res
     root_attrs = root[1]
     view_min_x = float(root_attrs["viewBox"].split()[0])
-    assert view_min_x == pytest.approx(-134.4)
+    assert view_min_x == pytest.approx(-139.4)
     top_y = 14 * 1.2
     vlane = 80 - 14 * 1.2
     bottom_y = top_y + vlane * 4
