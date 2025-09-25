@@ -103,7 +103,8 @@ class Renderer(object):
                  legend=None,
                  label_lines=None,
                  grid_draw=True,
-                 types=None):
+                 types=None,
+                 **extra_kwargs):
         if vspace <= 19:
             raise ValueError(
                 'vspace must be greater than 19, got {}.'.format(vspace))
@@ -138,6 +139,11 @@ class Renderer(object):
             self.label_lines = [label_lines]
         else:
             self.label_lines = label_lines
+        types = extra_kwargs.pop('types', types)
+        if extra_kwargs:
+            unexpected = ', '.join(sorted(extra_kwargs))
+            raise TypeError(f'Renderer.__init__() got unexpected keyword argument(s): {unexpected}')
+
         self.grid_draw = grid_draw
         self.type_overrides = _parse_type_overrides(types)
 
