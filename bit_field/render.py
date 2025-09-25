@@ -160,6 +160,8 @@ class Renderer(object):
         for e in desc:
             if 'array' in e:
                 length = e['array'][-1] if isinstance(e['array'], list) else e['array']
+                e['_array_start'] = lsb
+                e['_array_end'] = lsb + length
                 lsb += length
                 continue
             if 'bits' not in e:
@@ -260,7 +262,7 @@ class Renderer(object):
                 raise ValueError('label_lines start_line and end_line must be non-negative')
             if end >= self.lanes or start >= self.lanes:
                 raise ValueError('label_lines start_line/end_line exceed number of lanes')
-            if end - start < 0:
+            if end - start < 2:
                 raise ValueError('label_lines must cover at least 2 lines')
             layout = cfg['layout']
             if layout not in ('left', 'right'):
@@ -469,6 +471,14 @@ class Renderer(object):
             'transform': t(0, dy)
         }]
 
+        hide_spans = []
+        for e in desc:
+            if isinstance(e, dict) and 'array' in e and e.get('hide_lines'):
+                start = e.get('_array_start')
+                end = e.get('_array_end')
+                if start is not None and end is not None:
+                    hide_spans.append((start, end))
+
         skip_count = 0
         if self.uneven and self.lanes > 1 and self.lane_index == self.lanes - 1:
             skip_count = self.mod - self.total_bits % self.mod
@@ -498,6 +508,8 @@ class Renderer(object):
             elif any('lsb' in e and e['lsb'] == bit for e in desc):
                 res.append(self.vline(self.vlane, lpos * hbit + self.stroke_width / 2))
             else:
+                if any(start < bit < end for start, end in hide_spans):
+                    continue
                 res.append(self.vline((self.vlane / 8),
                                       lpos * hbit + self.stroke_width / 2))
                 res.append(self.vline((self.vlane / 8),

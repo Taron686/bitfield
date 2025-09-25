@@ -1,3 +1,6 @@
+import copy
+import math
+
 import pytest
 from ..jsonml_stringify import jsonml_stringify
 from ..render import typeColor, Renderer
@@ -138,3 +141,59 @@ def test_array_text_custom_color():
     gap_text = next(attrs for attrs, content in texts if content == 'gap')
     assert gap_text.get('fill') == '#0f0'
     assert gap_text.get('stroke') == 'none'
+
+
+def test_array_hide_lines_suppresses_internal_ticks():
+    base_reg = [
+        {'name': 'start', 'bits': 8},
+        {'array': 128, 'type': 4, 'name': 'gap'},
+        {'name': 'end', 'bits': 8},
+    ]
+
+    def collect_lines(node, lines):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child, lines)
+
+    def top_tick_positions(renderer, jsonml):
+        lines = []
+        collect_lines(jsonml, lines)
+        top_tick_y = renderer.vlane / 8
+        ticks = []
+        for attrs in lines:
+            if attrs.get('x1') == attrs.get('x2') and 'y1' not in attrs and 'y2' in attrs:
+                if math.isclose(attrs['y2'], top_tick_y, abs_tol=1e-6):
+                    ticks.append(attrs['x1'])
+        return ticks
+
+    regular_reg = copy.deepcopy(base_reg)
+    renderer_regular = Renderer(bits=32)
+    jsonml_regular = renderer_regular.render(regular_reg)
+    start = regular_reg[1]['_array_start']
+    end = regular_reg[1]['_array_end']
+    regular_ticks = top_tick_positions(renderer_regular, jsonml_regular)
+
+    hidden_reg = copy.deepcopy(base_reg)
+    hidden_reg[1]['hide_lines'] = True
+    renderer_hidden = Renderer(bits=32)
+    jsonml_hidden = renderer_hidden.render(hidden_reg)
+    hidden_ticks = top_tick_positions(renderer_hidden, jsonml_hidden)
+
+    field_starts = {e['lsb'] for e in regular_reg if 'lsb' in e}
+    expected_removed = 0
+    for span_start, span_end in [(e['_array_start'], e['_array_end'])
+                                 for e in hidden_reg if e.get('hide_lines')]:
+        for bit in range(span_start + 1, span_end):
+            if bit >= renderer_regular.total_bits:
+                continue
+            if bit % renderer_regular.mod == 0:
+                continue
+            if bit in field_starts:
+                continue
+            expected_removed += 1
+
+    assert expected_removed > 0
+    assert len(hidden_ticks) < len(regular_ticks)
+    assert len(regular_ticks) - len(hidden_ticks) == expected_removed
