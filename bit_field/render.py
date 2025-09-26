@@ -711,7 +711,11 @@ class Renderer(object):
                 x2 = x2_outer - width
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
                 color = self.type_color(e.get('type')) if e.get('type') is not None else 'black'
-                grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
+                show_lines = not e.get('hide_lines')
+                grp_attrs = {'stroke-width': self.stroke_width}
+                if show_lines:
+                    grp_attrs['stroke'] = color
+                grp = ['g', grp_attrs]
                 # fill the full gap bounds to avoid transparent edges
                 background_fill = None
                 if e.get('type') is not None:
@@ -741,9 +745,27 @@ class Renderer(object):
                         }])
                 # gap polygon on top, optionally with custom fill
                 gap_fill = e.get('gap_fill', e.get('fill', '#fff'))
-                grp.append(['polygon', {'points': pts, 'fill': gap_fill}])
-                grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
-                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
+                polygon_attrs = {'points': pts, 'fill': gap_fill}
+                if show_lines:
+                    polygon_attrs['stroke'] = color
+                else:
+                    polygon_attrs['stroke'] = 'none'
+                grp.append(['polygon', polygon_attrs])
+                if show_lines:
+                    grp.append(['line', {
+                        'x1': x1,
+                        'y1': top_y,
+                        'x2': x2,
+                        'y2': bottom_y,
+                        'stroke': color,
+                    }])
+                    grp.append(['line', {
+                        'x1': x1 + width,
+                        'y1': top_y,
+                        'x2': x2_outer,
+                        'y2': bottom_y,
+                        'stroke': color,
+                    }])
                 if 'name' in e:
                     name = str(e['name'])
                     lines = name.split('\n')

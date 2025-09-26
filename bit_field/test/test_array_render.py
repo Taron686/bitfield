@@ -354,6 +354,21 @@ def test_array_hide_lines_skips_grid_and_horizontal():
         if attrs.get('y1', 0) == attrs.get('y2', 0)
     ]
     tiny_verticals = [attrs for attrs in lines if attrs.get('y2') == 7.9]
+    styled_lines = [attrs for attrs in lines if 'stroke' in attrs]
 
     assert len(horizontals) == 2
     assert tiny_verticals == []
+    assert styled_lines == []
+
+    polygons = []
+
+    def collect_polygons(node):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polygons.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child)
+
+    collect_polygons(jsonml)
+
+    assert all(poly.get('stroke') in (None, 'none') for poly in polygons)
