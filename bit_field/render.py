@@ -723,14 +723,22 @@ class Renderer(object):
                         background_fill = e.get('gap_fill')
                 if background_fill is not None:
                     # use raw coordinates so the background reaches the lane boundaries
-                    left = x1_raw
-                    right = self.hspace if (x2_raw == 0 and end > start) else x2_raw
-                    rect = f"{left},{top_y} {right},{top_y} {right},{bottom_y} {left},{bottom_y}"
-                    grp.append(['polygon', {
-                        'points': rect,
-                        'fill': background_fill,
-                        'stroke': 'none'
-                    }])
+                    for lane_idx in range(start_lane, end_lane + 1):
+                        lane_top = base_y + self.vlane * lane_idx
+                        lane_bottom = base_y + self.vlane * (lane_idx + 1)
+                        left = x1_raw if lane_idx == start_lane else 0
+                        if lane_idx == end_lane:
+                            right = x2_raw
+                            if right == 0 and end > start:
+                                right = self.hspace
+                        else:
+                            right = self.hspace
+                        rect = f"{left},{lane_top} {right},{lane_top} {right},{lane_bottom} {left},{lane_bottom}"
+                        grp.append(['polygon', {
+                            'points': rect,
+                            'fill': background_fill,
+                            'stroke': 'none'
+                        }])
                 # gap polygon on top, optionally with custom fill
                 gap_fill = e.get('gap_fill', e.get('fill', '#fff'))
                 grp.append(['polygon', {'points': pts, 'fill': gap_fill}])

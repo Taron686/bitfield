@@ -116,6 +116,59 @@ def test_array_gap_fill_used_for_background_when_no_type():
     assert background, 'expected background polygon to use gap_fill colour'
 
 
+def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 48, 'name': 't dolore', 'gap_fill': '#B0BEC5'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+
+    backgrounds = [
+        p for p in polygons
+        if p.get('fill') == '#B0BEC5' and p.get('stroke') == 'none'
+    ]
+    assert len(backgrounds) == 2
+
+    base_y = renderer.fontsize * 1.2
+    step = renderer.hspace / renderer.mod
+
+    lane3_coords = None
+    lane4_coords = None
+    for poly in backgrounds:
+        coords = [tuple(map(float, point.split(','))) for point in poly['points'].split()]
+        top = coords[0][1]
+        if top == pytest.approx(base_y + renderer.vlane * 3):
+            lane3_coords = coords
+        elif top == pytest.approx(base_y + renderer.vlane * 4):
+            lane4_coords = coords
+
+    assert lane3_coords is not None
+    assert lane4_coords is not None
+
+    assert lane3_coords[0][0] == pytest.approx(0)
+    assert lane3_coords[1][0] == pytest.approx(renderer.hspace)
+    assert lane3_coords[2][0] == pytest.approx(renderer.hspace)
+    assert lane3_coords[3][0] == pytest.approx(0)
+
+    assert lane4_coords[0][0] == pytest.approx(0)
+    assert lane4_coords[1][0] == pytest.approx(step * 16)
+    assert lane4_coords[2][0] == pytest.approx(step * 16)
+    assert lane4_coords[3][0] == pytest.approx(0)
+
 def test_array_full_lane_wedge():
     reg = [
         {'name': 'head', 'bits': 8},
