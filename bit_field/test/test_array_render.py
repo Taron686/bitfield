@@ -89,6 +89,33 @@ def test_array_gap_width():
     assert coords[1][0] == pytest.approx(coords[0][0] + width)
     assert coords[3][0] == pytest.approx(coords[2][0] - width)
 
+
+def test_array_gap_fill_used_for_background_when_no_type():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'gap_fill': '#abc', 'name': 'gap'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+
+    background = [
+        p for p in polygons
+        if p.get('fill') == '#abc' and p.get('stroke') == 'none'
+    ]
+    assert background, 'expected background polygon to use gap_fill colour'
+
+
 def test_array_full_lane_wedge():
     reg = [
         {'name': 'head', 'bits': 8},
