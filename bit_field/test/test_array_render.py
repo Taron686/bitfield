@@ -152,9 +152,9 @@ def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
         coords = [tuple(map(float, point.split(','))) for point in poly['points'].split()]
         ys = [y for _, y in coords]
         center = (min(ys) + max(ys)) / 2
-        if center == pytest.approx(base_y + renderer.vlane * (3 + 0.5), abs=0.5):
+        if center == pytest.approx(base_y + renderer.vlane * 3 + renderer.attr_padding * 3 + renderer.vlane / 2, abs=0.5):
             lane3_coords = coords
-        elif center == pytest.approx(base_y + renderer.vlane * (4 + 0.5), abs=0.5):
+        elif center == pytest.approx(base_y + renderer.vlane * 4 + renderer.attr_padding * 4 + renderer.vlane / 2, abs=0.5):
             lane4_coords = coords
 
     assert lane3_coords is not None
@@ -244,7 +244,7 @@ def test_array_text_aligns_to_first_lane_when_partial():
 
     base_y = renderer.fontsize * 1.2
     start_lane = 96 // renderer.mod
-    first_lane_center = base_y + renderer.vlane * start_lane + renderer.vlane / 2
+    first_lane_center = renderer._line_center_y(start_lane, base_y)
     expected_y = first_lane_center + renderer.fontsize / 2
     assert float(gap_text['y']) == pytest.approx(expected_y)
 
@@ -320,7 +320,9 @@ def test_array_text_stays_centered_for_full_lane_multiples():
     base_y = renderer.fontsize * 1.2
     start_lane = 96 // renderer.mod
     lane_span = 64 // renderer.mod
-    center_y = base_y + renderer.vlane * start_lane + renderer.vlane * lane_span / 2
+    start_top = base_y + renderer.vlane * start_lane + renderer.attr_padding * start_lane
+    end_bottom = base_y + renderer.vlane * (start_lane + lane_span) + renderer.attr_padding * (start_lane + lane_span)
+    center_y = (start_top + end_bottom) / 2
     expected_y = center_y + renderer.fontsize / 2
     assert float(gap_text['y']) == pytest.approx(expected_y)
 
@@ -501,7 +503,7 @@ def test_array_hide_lines_restores_top_line_for_trailing_field():
     lane_left = 0 if renderer.vflip else step * skip_count
     lane_right = lane_left + (renderer.mod - skip_count) * step
     expected_start = lane_left + trailing_offset * step
-    expected_y = base_y + renderer.vlane * end_lane
+    expected_y = base_y + renderer.vlane * end_lane + renderer.attr_padding * end_lane
 
     lines = []
 
