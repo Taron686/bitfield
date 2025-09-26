@@ -262,7 +262,7 @@ def test_arrow_jump_draws_path_left():
 
     step = renderer.hspace / renderer.mod
     base_y = renderer.fontsize * 1.2
-    line_center = lambda line: base_y + renderer.vlane * line + renderer.vlane / 2
+    line_center = lambda line: base_y + renderer.vlane * line + renderer.attr_padding * line + renderer.vlane / 2
     bit_x = lambda bit: step * (renderer.mod - bit - 0.5)
     outer_distance = renderer.arrow_jumps[0]["_outer_distance"]
     assert outer_distance == pytest.approx(10)

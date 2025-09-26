@@ -172,6 +172,20 @@ field types and to use human-readable labels in your payload:
   ]
 }
 ```
+
+Disable the bit number labels drawn above each field by setting
+`"number_draw": false` in your configuration:
+
+```json
+{
+  "config": {
+    "number_draw": false
+  },
+  "payload": [
+    { "name": "Lorem ipsum dolor", "bits": 32 }
+  ]
+}
+```
 ![Json Example](example/example.svg)
 
 Rendering with the CLI:
