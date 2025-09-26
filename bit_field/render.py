@@ -122,6 +122,7 @@ class Renderer(object):
                  label_lines=None,
                  arrow_jumps=None,
                  grid_draw=True,
+                 number_draw=True,
                  types=None,
                  **extra_kwargs):
         if vspace <= 19:
@@ -169,6 +170,8 @@ class Renderer(object):
             raise TypeError(f'Renderer.__init__() got unexpected keyword argument(s): {unexpected}')
 
         self.grid_draw = grid_draw
+        self.number_draw = number_draw
+        self.bit_label_height = self.fontsize * 1.2 if self.number_draw else 0
         self.type_overrides = _parse_type_overrides(types)
 
     def get_total_bits(self, desc):
@@ -343,10 +346,10 @@ class Renderer(object):
                     max_attr_count = max(max_attr_count, 1)
 
         if not self.compact:
-            self.vlane = self.vspace - self.fontsize * (1.2 + max_attr_count)
+            self.vlane = self.vspace - (self.bit_label_height + self.fontsize * max_attr_count)
             height = self.vspace * self.lanes  + self.stroke_width / 2
         else:
-            self.vlane = self.vspace - self.fontsize * 1.2
+            self.vlane = self.vspace - self.bit_label_height
             height = self.vlane * (self.lanes - 1) + self.vspace + self.stroke_width / 2
         if self.legend:
             height += self.fontsize * 1.2
@@ -509,7 +512,7 @@ class Renderer(object):
         start = cfg['start_line']
         end = cfg['end_line']
         layout = cfg['layout']
-        base_y = self.fontsize * 1.2
+        base_y = self.bit_label_height
         if self.legend:
             base_y += self.fontsize * 1.2
         top_y = base_y + self.vlane * start
@@ -610,7 +613,7 @@ class Renderer(object):
         if not self.arrow_jumps:
             return None
 
-        base_y = self.fontsize * 1.2
+        base_y = self.bit_label_height
         if self.legend:
             base_y += self.fontsize * 1.2
 
@@ -684,7 +687,7 @@ class Renderer(object):
 
     def array_gaps(self, desc):
         step = self.hspace / self.mod
-        base_y = self.fontsize * 1.2
+        base_y = self.bit_label_height
         res = ['g', {}]
         bit_pos = 0
         for e in desc:
@@ -784,7 +787,7 @@ class Renderer(object):
 
     def cage(self, desc):
         if not self.compact or self.index == 0:
-            dy = self.fontsize * 1.2
+            dy = self.bit_label_height
         else:
             dy = 0
         res = ['g', {
@@ -850,7 +853,9 @@ class Renderer(object):
 
     def labelArr(self, desc):  # noqa: C901
         step = self.hspace / self.mod
-        bits = ['g', {'transform': t(step / 2, self.fontsize)}]
+        bits = None
+        if self.number_draw:
+            bits = ['g', {'transform': t(step / 2, self.fontsize)}]
         names = ['g', {'transform': t(step / 2, self.vlane / 2 + self.fontsize / 2)}]
         attrs = ['g', {'transform': t(step / 2, self.vlane + self.fontsize)}]
         blanks = ['g', {'transform': t(0, 0)}]
@@ -876,7 +881,7 @@ class Renderer(object):
                     continue
             msb_pos = msbm if self.vflip else (self.mod - msbm - 1)
             lsb_pos = lsbm if self.vflip else (self.mod - lsbm - 1)
-            if not self.compact:
+            if self.number_draw and not self.compact:
                 bits.append(['text', {
                     'x': step * lsb_pos,
                     'font-size': self.fontsize,
@@ -971,17 +976,22 @@ class Renderer(object):
                         'transform': t(0, i*self.fontsize)
                     }, *atext])
         if not self.compact or (self.index == 0):
-            if self.compact:
-                for i in range(self.mod):
-                    bits.append(['text', {
-                        'x': step * i,
-                        'font-size': self.fontsize,
-                        'font-family': self.fontfamily,
-                        'font-weight': self.fontweight,
-                    }, str(i if self.vflip else self.mod - i - 1)])
-            res = ['g', {}, bits, ['g', {
-                'transform': t(0, self.fontsize*1.2)
-            }, blanks, names, attrs]]
+            lane_children = []
+            if self.number_draw:
+                if self.compact:
+                    for i in range(self.mod):
+                        bits.append(['text', {
+                            'x': step * i,
+                            'font-size': self.fontsize,
+                            'font-family': self.fontfamily,
+                            'font-weight': self.fontweight,
+                        }, str(i if self.vflip else self.mod - i - 1)])
+                lane_children.append(bits)
+            content_attrs = {}
+            if self.bit_label_height:
+                content_attrs['transform'] = t(0, self.bit_label_height)
+            lane_children.append(['g', content_attrs, blanks, names, attrs])
+            res = ['g', {}, *lane_children]
         else:
             res = ['g', {}, blanks, names, attrs]
         return res

@@ -164,3 +164,74 @@ def test_field_name_supports_newlines():
     assert any(span[2] == 'Lorem ipsum' for span in matching_spans)
     dolor_span = next(span for span in matching_spans if span[2] == 'dolor')
     assert 'dy' in dolor_span[1]
+
+
+def _collect_text_values(node, collected):
+    if isinstance(node, list):
+        if node and node[0] == 'text':
+            for child in node[2:]:
+                if isinstance(child, str):
+                    collected.append(child)
+        for child in node[1:]:
+            _collect_text_values(child, collected)
+
+
+def _collect_transform_values(node, collected):
+    if isinstance(node, list):
+        if len(node) > 1 and isinstance(node[1], dict):
+            transform = node[1].get('transform')
+            if transform is not None:
+                collected.append(transform)
+        for child in node[1:]:
+            _collect_transform_values(child, collected)
+
+
+def test_number_draw_enabled_by_default():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    jsonml = render(reg, bits=8)
+
+    texts = []
+    _collect_text_values(jsonml, texts)
+
+    assert '0' in texts
+    assert '7' in texts
+
+
+def test_number_draw_can_be_disabled():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    jsonml = render(reg, bits=8, number_draw=False)
+
+    texts = []
+    _collect_text_values(jsonml, texts)
+
+    assert '0' not in texts
+    assert '7' not in texts
+
+
+def test_number_draw_disabled_removes_label_offset():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    with_numbers = render(reg, bits=8)
+    without_numbers = render(reg, bits=8, number_draw=False)
+
+    transforms_with = []
+    _collect_transform_values(with_numbers, transforms_with)
+
+    transforms_without = []
+    _collect_transform_values(without_numbers, transforms_without)
+
+    label_offsets = {
+        value for value in transforms_with
+        if value.startswith('translate(0, ') and value != 'translate(0, 0)'
+    }
+
+    assert label_offsets, 'expected bit-number offsets when number_draw is enabled'
+    assert label_offsets.isdisjoint(transforms_without)
