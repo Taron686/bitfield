@@ -903,9 +903,32 @@ class Renderer(object):
                 if 'overline' in e and e['overline']:
                     ltextattrs['text-decoration'] = 'overline'
                 available_space = step * (msbm - lsbm + 1)
+                trimmed_name = self.trim_text(e['name'], available_space)
+                lines = str(trimmed_name).split('\n')
+                text_group = ['text']
+                if len(lines) == 1:
+                    text_group.append(ltextattrs)
+                    text_group.extend(tspan(lines[0]))
+                else:
+                    line_height = self.fontsize * 1.2
+                    first_line_y = ltextattrs['y'] - line_height * (len(lines) - 1) / 2
+                    multiline_attrs = dict(ltextattrs)
+                    multiline_attrs['y'] = first_line_y
+                    text_group.append(multiline_attrs)
+                    for i, line in enumerate(lines):
+                        spans = tspan(line)
+                        if not spans:
+                            spans = [['tspan', {}, '']]
+                        for j, span in enumerate(spans):
+                            span_attrs = dict(span[1])
+                            if j == 0:
+                                span_attrs['x'] = 0
+                                if i > 0:
+                                    span_attrs['dy'] = line_height
+                            text_group.append(['tspan', span_attrs, span[2]])
                 ltext = ['g', {
                     'transform': t(step * (msb_pos + lsb_pos) / 2, -6),
-                }, ['text', ltextattrs] + tspan(self.trim_text(e['name'], available_space))]
+                }, text_group]
                 names.append(ltext)
             if 'name' not in e or e['type'] is not None:
                 style = self.type_style(e['type'])
@@ -996,15 +1019,22 @@ class Renderer(object):
         return res
 
     def trim_text(self, text, available_space):
+        text = str(text)
         if self.trim_char_width is None:
             return text
-        text_width = len(text) * self.trim_char_width
-        if text_width <= available_space:
-            return text
-        end = len(text) - int((text_width - available_space) / self.trim_char_width) - 3
-        if end > 0:
-            return text[:end] + '...'
-        return text[:1] + '...'
+
+        def _trim_line(line):
+            text_width = len(line) * self.trim_char_width
+            if text_width <= available_space:
+                return line
+            end = len(line) - int((text_width - available_space) / self.trim_char_width) - 3
+            if end > 0:
+                return line[:end] + '...'
+            return line[:1] + '...'
+
+        lines = text.split('\n')
+        trimmed_lines = [_trim_line(line) for line in lines]
+        return '\n'.join(trimmed_lines)
 
 
 def render(desc, **kwargs):
