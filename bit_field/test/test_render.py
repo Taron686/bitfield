@@ -138,3 +138,29 @@ def test_types_config_color_override_allows_hex_without_hash():
 def test_types_config_requires_mapping():
     with pytest.raises(TypeError):
         render([], types=["not", "a", "mapping"])
+
+
+def test_field_name_supports_newlines():
+    reg = [
+        {"name": "Lorem ipsum\ndolor", "bits": 32, "type": "gray"},
+    ]
+
+    jsonml = render(reg, bits=32)
+
+    matching_spans = []
+
+    def collect_multiline_spans(node):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                spans = [child for child in node[2:] if isinstance(child, list) and child and child[0] == 'tspan']
+                texts = [span[2] for span in spans]
+                if 'Lorem ipsum' in texts and 'dolor' in texts:
+                    matching_spans.extend(spans)
+            for child in node[1:]:
+                collect_multiline_spans(child)
+
+    collect_multiline_spans(jsonml)
+
+    assert any(span[2] == 'Lorem ipsum' for span in matching_spans)
+    dolor_span = next(span for span in matching_spans if span[2] == 'dolor')
+    assert 'dy' in dolor_span[1]
