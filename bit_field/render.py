@@ -337,16 +337,18 @@ class Renderer(object):
         if self.arrow_jumps is not None:
             self._validate_arrow_jumps()
 
-        max_attr_count = 0
+        max_attr_height = 0
         for e in desc:
-            if 'attr' in e:
-                if isinstance(e['attr'], list):
-                    max_attr_count = max(max_attr_count, len(e['attr']))
-                else:
-                    max_attr_count = max(max_attr_count, 1)
+            attr_entries = self._prepare_attr_entries(e.get('attr'))
+            if attr_entries:
+                e['_attr_entries'] = attr_entries
+                total_height = sum(entry['spacing'] for entry in attr_entries)
+                max_attr_height = max(max_attr_height, total_height)
+            else:
+                e['_attr_entries'] = []
 
         if not self.compact:
-            self.vlane = self.vspace - (self.bit_label_height + self.fontsize * max_attr_count)
+            self.vlane = self.vspace - (self.bit_label_height + max_attr_height)
             height = self.vspace * self.lanes  + self.stroke_width / 2
         else:
             self.vlane = self.vspace - self.bit_label_height
@@ -991,6 +993,125 @@ class Renderer(object):
                 return True
         return False
 
+    @staticmethod
+    def _is_numeric_angle(value):
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+    def _is_rotated_attr_entry(self, value):
+        return (
+            isinstance(value, (list, tuple))
+            and len(value) == 2
+            and isinstance(value[0], str)
+            and self._is_numeric_angle(value[1])
+        )
+
+    def _estimate_text_width(self, text):
+        text = str(text)
+        if not text:
+            return 0
+        char_width = self.trim_char_width if self.trim_char_width is not None else self.fontsize * 0.6
+        lines = text.split('\n')
+        max_length = max((len(line) for line in lines), default=0)
+        return max_length * char_width
+
+    def _prepare_attr_entries(self, attr_value):
+        if attr_value is None:
+            return []
+
+        if self._is_rotated_attr_entry(attr_value):
+            items = [attr_value]
+        elif isinstance(attr_value, list):
+            items = list(attr_value)
+        else:
+            items = [attr_value]
+
+        entries = []
+        for item in items:
+            if self._is_rotated_attr_entry(item):
+                text, angle = item
+                text = str(text)
+                angle = float(angle)
+                text_width = self._estimate_text_width(text)
+                base_height = self.fontsize
+                angle_rad = math.radians(angle)
+                rotated_height = abs(text_width * math.sin(angle_rad)) + abs(base_height * math.cos(angle_rad))
+                spacing = max(rotated_height, base_height)
+                entries.append({
+                    'kind': 'rotated_text',
+                    'text': text,
+                    'angle': angle,
+                    'spacing': spacing,
+                    'y': spacing / 2,
+                })
+            elif isinstance(item, int):
+                entries.append({
+                    'kind': 'bits',
+                    'value': item,
+                    'spacing': self.fontsize,
+                    'y': self.fontsize,
+                })
+            else:
+                entries.append({
+                    'kind': 'text',
+                    'text': str(item),
+                    'spacing': self.fontsize,
+                    'y': self.fontsize,
+                })
+
+        return entries
+
+    def _render_attr_entry(self, entry, step, lsb_pos, msb_pos, lsb, msb, element):
+        kind = entry.get('kind')
+
+        if kind == 'bits':
+            attribute = entry['value']
+            nodes = []
+            for biti in range(0, msb - lsb + 1):
+                bit_index = biti + lsb - element['lsb']
+                if (1 << bit_index) & attribute == 0:
+                    bit_text = "0"
+                else:
+                    bit_text = "1"
+                bit_pos = lsb_pos + biti if self.vflip else (lsb_pos - biti)
+                text_attrs = {
+                    'x': step * bit_pos,
+                    'y': entry['y'],
+                    'font-size': self.fontsize,
+                    'font-family': self.fontfamily,
+                    'font-weight': self.fontweight,
+                }
+                nodes.append(['text', text_attrs] + tspan(bit_text))
+            return nodes
+
+        if kind == 'rotated_text':
+            text = entry['text']
+            angle = entry['angle']
+            center_x = step * (msb_pos + lsb_pos) / 2
+            center_y = entry['y']
+            text_attrs = {
+                'x': center_x,
+                'y': center_y,
+                'font-size': self.fontsize,
+                'font-family': self.fontfamily,
+                'font-weight': self.fontweight,
+                'text-anchor': 'middle',
+                'dominant-baseline': 'middle',
+                'transform': 'rotate({},{},{})'.format(angle, center_x, center_y),
+            }
+            return [['text', text_attrs] + tspan(text)]
+
+        if kind == 'text':
+            text_attrs = {
+                'x': step * (msb_pos + lsb_pos) / 2,
+                'y': entry['y'],
+                'font-size': self.fontsize,
+                'font-family': self.fontfamily,
+                'font-weight': self.fontweight,
+            }
+            return [['text', text_attrs] + tspan(entry['text'])]
+
+        return []
+
     def labels(self, desc):
         return ['g', {'text-anchor': 'middle'}, self.labelArr(desc)]
 
@@ -1000,7 +1121,7 @@ class Renderer(object):
         if self.number_draw:
             bits = ['g', {'transform': t(step / 2, self.fontsize)}]
         names = ['g', {'transform': t(step / 2, self.vlane / 2 + self.fontsize / 2)}]
-        attrs = ['g', {'transform': t(step / 2, self.vlane + self.fontsize)}]
+        attrs = ['g', {'transform': t(step / 2, self.vlane)}]
         blanks = ['g', {'transform': t(0, 0)}]
 
         for e in desc:
@@ -1088,36 +1209,17 @@ class Renderer(object):
                     'height': self.vlane - self.stroke_width / 2,
                     'fill': self.type_color(e['type']),
                 }])
-            if 'attr' in e and not self.compact:
-                if isinstance(e['attr'], list):
-                    e_attr = e['attr']
-                else:
-                    e_attr = [e['attr']]
-                for i, attribute in enumerate(e_attr):
-                    if isinstance(attribute, int):
-                        atext = []
-                        for biti in range(0, msb - lsb + 1):
-                            if (1 << (biti + lsb - e['lsb'])) & attribute == 0:
-                                bit_text = "0"
-                            else:
-                                bit_text = "1"
-                            bit_pos = lsb_pos + biti if self.vflip else (lsb_pos - biti)
-                            atext += [['text', {
-                                'x': step * bit_pos,
-                                'font-size': self.fontsize,
-                                'font-family': self.fontfamily,
-                                'font-weight': self.fontweight,
-                            }] + tspan(bit_text)]
-                    else:
-                        atext = [['text', {
-                            'x': step * (msb_pos + lsb_pos) / 2,
-                            'font-size': self.fontsize,
-                            'font-family': self.fontfamily,
-                            'font-weight': self.fontweight
-                        }] + tspan(attribute)]
-                    attrs.append(['g', {
-                        'transform': t(0, i*self.fontsize)
-                    }, *atext])
+            if not self.compact:
+                attr_entries = e.get('_attr_entries', [])
+                if attr_entries:
+                    attr_offset = 0
+                    for entry in attr_entries:
+                        rendered = self._render_attr_entry(entry, step, lsb_pos, msb_pos, lsb, msb, e)
+                        if rendered:
+                            attrs.append(['g', {
+                                'transform': t(0, attr_offset)
+                            }, *rendered])
+                        attr_offset += entry['spacing']
         if not self.compact or (self.index == 0):
             lane_children = []
             if self.number_draw:
