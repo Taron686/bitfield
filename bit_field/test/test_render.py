@@ -232,7 +232,7 @@ def test_rotated_attr_reserves_space_and_rotates_text():
     assert attrs.get('dominant-baseline') == 'middle'
     assert attrs.get('transform', '').startswith('rotate(-90')
 
-    total_attr_height = renderer.vspace - renderer.bit_label_height - renderer.vlane
+    total_attr_height = renderer.attr_padding
     char_width = renderer.trim_char_width if renderer.trim_char_width is not None else renderer.fontsize * 0.6
     text_width = len('Vertical') * char_width
     expected_height = max(abs(text_width * math.sin(math.radians(-90))) + abs(renderer.fontsize * math.cos(math.radians(-90))), renderer.fontsize)

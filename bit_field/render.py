@@ -173,6 +173,8 @@ class Renderer(object):
         self.number_draw = number_draw
         self.bit_label_height = self.fontsize * 1.2 if self.number_draw else 0
         self.type_overrides = _parse_type_overrides(types)
+        self.attr_padding = 0
+        self.lane_spacing = self.vspace
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -337,6 +339,7 @@ class Renderer(object):
         if self.arrow_jumps is not None:
             self._validate_arrow_jumps()
 
+        self.attr_padding = 0
         max_attr_height = 0
         for e in desc:
             attr_entries = self._prepare_attr_entries(e.get('attr'))
@@ -348,10 +351,14 @@ class Renderer(object):
                 e['_attr_entries'] = []
 
         if not self.compact:
-            self.vlane = self.vspace - (self.bit_label_height + max_attr_height)
-            height = self.vspace * self.lanes  + self.stroke_width / 2
+            self.vlane = self.vspace - self.bit_label_height
+            self.attr_padding = max_attr_height
+            self.lane_spacing = self.vspace + self.attr_padding
+            height = self.lane_spacing * self.lanes + self.stroke_width / 2
         else:
             self.vlane = self.vspace - self.bit_label_height
+            self.attr_padding = 0
+            self.lane_spacing = self.vspace
             height = self.vlane * (self.lanes - 1) + self.vspace + self.stroke_width / 2
         if self.legend:
             height += self.fontsize * 1.2
@@ -517,8 +524,8 @@ class Renderer(object):
         base_y = self.bit_label_height
         if self.legend:
             base_y += self.fontsize * 1.2
-        top_y = base_y + self.vlane * start
-        bottom_y = base_y + self.vlane * (end + 1)
+        top_y = base_y + self.vlane * start + self.attr_padding * start
+        bottom_y = base_y + self.vlane * (end + 1) + self.attr_padding * (end + 1)
         mid_y = (top_y + bottom_y) / 2
         gap = self.label_gap
         width = self.label_width
@@ -606,7 +613,7 @@ class Renderer(object):
         return step * position
 
     def _line_center_y(self, line, base_y):
-        return base_y + self.vlane * line + self.vlane / 2
+        return base_y + self.vlane * line + self.attr_padding * line + self.vlane / 2
 
     def _arrow_jump_head_extent(self, stroke_width):
         return self.ARROW_JUMP_HEAD_LENGTH * stroke_width
@@ -706,8 +713,8 @@ class Renderer(object):
                 x2_raw = (end % self.mod) * step
                 width = step * e.get('gap_width', 0.5)
                 margin = step * 0.1
-                top_y = base_y + self.vlane * start_lane
-                bottom_y = base_y + self.vlane * (end_lane + 1)
+                top_y = base_y + self.vlane * start_lane + self.attr_padding * start_lane
+                bottom_y = base_y + self.vlane * (end_lane + 1) + self.attr_padding * (end_lane + 1)
                 if x2_raw == 0 and end > start:
                     x2_outer = self.hspace - margin
                 else:
@@ -736,8 +743,8 @@ class Renderer(object):
                     if end_lane > start_lane:
                         overlap = min(self.vlane * 0.05, 0.5)
                     for lane_idx in range(start_lane, end_lane + 1):
-                        lane_top = base_y + self.vlane * lane_idx
-                        lane_bottom = base_y + self.vlane * (lane_idx + 1)
+                        lane_top = base_y + self.vlane * lane_idx + self.attr_padding * lane_idx
+                        lane_bottom = lane_top + self.vlane
                         if overlap:
                             if lane_idx > start_lane:
                                 lane_top -= overlap
@@ -782,7 +789,7 @@ class Renderer(object):
                         )
                         if boundary_segments:
                             hpos = 0 if self.vflip else step * skip_count
-                            lane_top = base_y + self.vlane * lane_idx
+                            lane_top = base_y + self.vlane * lane_idx + self.attr_padding * lane_idx
                             for seg_start, seg_end in boundary_segments:
                                 if seg_end <= trailing_offset:
                                     continue
@@ -875,7 +882,7 @@ class Renderer(object):
             else:
                 dy = 0
         else:
-            dy = self.index * self.vspace
+            dy = self.index * self.lane_spacing
         if self.legend:
             dy += self.fontsize * 1.2
         res = ['g', {
