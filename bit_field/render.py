@@ -1070,19 +1070,19 @@ class Renderer(object):
             res = ['g', {}, blanks, names, attrs]
         return res
 
-    def hline(self, len, x=0, y=0, padding=0):
+    def hline(self, length, x=0, y=0, padding=0):
         res = ['line']
-        att = {}
         if padding != 0:
-            len -= padding
-            x += padding/2
-        if x != 0:
-            att['x1'] = x
-        if len != 0:
-            att['x2'] = x + len
-        if y != 0:
-            att['y1'] = y
-            att['y2'] = y
+            length -= padding
+            x += padding / 2
+
+        end_x = x + length
+        att = {
+            'x1': x,
+            'x2': end_x,
+            'y1': y,
+            'y2': y,
+        }
         res.append(att)
         return res
 

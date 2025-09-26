@@ -215,6 +215,10 @@ def test_hidden_array_draws_boundary_for_following_fields():
 
     assert trailing_segments, 'expected a horizontal boundary after the hidden array'
 
+    segment = trailing_segments[0]
+    assert segment.get('y1') == pytest.approx(0)
+    assert segment.get('y2') == pytest.approx(0)
+
 
 def test_array_text_aligns_to_first_lane_when_partial():
     reg = [
