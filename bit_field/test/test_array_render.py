@@ -457,3 +457,70 @@ def test_array_hide_lines_skips_grid_and_horizontal():
     collect_polygons(jsonml)
 
     assert all(poly.get('stroke') in (None, 'none') for poly in polygons)
+
+
+def test_array_hide_lines_restores_top_line_for_trailing_field():
+    reg = [
+        {"name": "Lorem ipsum dolor", "bits": 32, "type": "gray"},
+        {"name": "consetetur sadipsci", "bits": 32, "type": 1},
+        {"name": "ipsum dolor", "bits": 32, "type": 1},
+        {"array": 48, "name": "t dolore", "type": "#B0BEC5", "hide_lines": True, "gap_fill": "#B0BEC5"},
+        {"name": "dolores", "bits": 16, "type": 1},
+        {"name": "ea takima", "bits": 8, "type": 1},
+        {"name": "s est Lorem", "bits": 24, "type": [125, 36, 200]},
+    ]
+
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    step = renderer.hspace / renderer.mod
+    base_y = renderer.fontsize * 1.2
+
+    bit_pos = 0
+    start = end = None
+    for entry in reg:
+        if 'array' in entry:
+            start = bit_pos
+            length = entry['array'][-1] if isinstance(entry['array'], list) else entry['array']
+            end = start + length
+            break
+        bit_pos += entry.get('bits', 0)
+
+    assert start is not None and end is not None
+
+    end_lane = (end - 1) // renderer.mod if end > 0 else 0
+    trailing_offset = end % renderer.mod
+    assert trailing_offset != 0
+
+    skip_count = 0
+    if renderer.uneven and renderer.lanes > 1 and end_lane == renderer.lanes - 1:
+        skip_count = renderer.mod - renderer.total_bits % renderer.mod
+        if skip_count == renderer.mod:
+            skip_count = 0
+
+    lane_left = 0 if renderer.vflip else step * skip_count
+    lane_right = lane_left + (renderer.mod - skip_count) * step
+    expected_start = lane_left + trailing_offset * step
+    expected_y = base_y + renderer.vlane * end_lane
+
+    lines = []
+
+    def collect_lines(node):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child)
+
+    collect_lines(jsonml)
+
+    matching = [
+        attrs for attrs in lines
+        if attrs.get('stroke') == 'black'
+        and attrs.get('y1') == attrs.get('y2')
+        and float(attrs['y1']) == pytest.approx(expected_y)
+        and float(attrs['x1']) == pytest.approx(expected_start)
+        and float(attrs['x2']) == pytest.approx(lane_right)
+    ]
+
+    assert matching

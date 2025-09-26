@@ -759,6 +759,42 @@ class Renderer(object):
                 else:
                     polygon_attrs['stroke'] = 'none'
                 grp.append(['polygon', polygon_attrs])
+                if not show_lines:
+                    trailing_offset = end % self.mod
+                    if trailing_offset:
+                        lane_idx = end_lane
+                        skip_count = 0
+                        if self.uneven and self.lanes > 1 and lane_idx == self.lanes - 1:
+                            skip_count = self.mod - self.total_bits % self.mod
+                            if skip_count == self.mod:
+                                skip_count = 0
+                        lane_start_bit = lane_idx * self.mod
+                        lane_width_bits = self.mod - skip_count
+                        boundary_segments = self._boundary_segments(
+                            lane_start_bit,
+                            lane_width_bits,
+                            lane_start_bit,
+                        )
+                        if boundary_segments:
+                            hpos = 0 if self.vflip else step * skip_count
+                            lane_top = base_y + self.vlane * lane_idx
+                            for seg_start, seg_end in boundary_segments:
+                                if seg_end <= trailing_offset:
+                                    continue
+                                seg_start = max(seg_start, trailing_offset)
+                                if seg_start >= seg_end:
+                                    continue
+                                x_start = hpos + seg_start * step
+                                x_end = hpos + seg_end * step
+                                grp.append(['line', {
+                                    'x1': x_start,
+                                    'y1': lane_top,
+                                    'x2': x_end,
+                                    'y2': lane_top,
+                                    'stroke': 'black',
+                                    'stroke-width': self.stroke_width,
+                                    'stroke-linecap': 'butt',
+                                }])
                 if show_lines:
                     grp.append(['line', {
                         'x1': x1,
