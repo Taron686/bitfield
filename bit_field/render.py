@@ -10,6 +10,26 @@ def t(x, y):
     return 'translate({}, {})'.format(x, y)
 
 
+def _parse_rotated_attribute(value):
+    if not isinstance(value, (list, tuple)):
+        return None
+    if len(value) != 2:
+        return None
+    text, angle = value
+    if not isinstance(text, str):
+        return None
+    if isinstance(angle, bool):
+        return None
+    if isinstance(angle, (int, float)):
+        rotation = float(angle)
+    else:
+        try:
+            rotation = float(angle)
+        except (TypeError, ValueError):
+            return None
+    return text, rotation
+
+
 def typeStyle(t):
     return ';fill:' + typeColor(t)
 
@@ -941,11 +961,16 @@ class Renderer(object):
                     'fill': self.type_color(e['type']),
                 }])
             if 'attr' in e and not self.compact:
-                if isinstance(e['attr'], list):
-                    e_attr = e['attr']
+                raw_attr = e['attr']
+                rotated = _parse_rotated_attribute(raw_attr)
+                if rotated is not None:
+                    e_attr = [raw_attr]
+                elif isinstance(raw_attr, list):
+                    e_attr = raw_attr
                 else:
-                    e_attr = [e['attr']]
+                    e_attr = [raw_attr]
                 for i, attribute in enumerate(e_attr):
+                    rotation_spec = _parse_rotated_attribute(attribute)
                     if isinstance(attribute, int):
                         atext = []
                         for biti in range(0, msb - lsb + 1):
@@ -961,12 +986,27 @@ class Renderer(object):
                                 'font-weight': self.fontweight,
                             }] + tspan(bit_text)]
                     else:
-                        atext = [['text', {
+                        text_value = attribute
+                        text_attrs = {
                             'x': step * (msb_pos + lsb_pos) / 2,
                             'font-size': self.fontsize,
                             'font-family': self.fontfamily,
                             'font-weight': self.fontweight
-                        }] + tspan(attribute)]
+                        }
+                        if rotation_spec is not None:
+                            text_value, rotation = rotation_spec
+                            rotation_str = '{:g}'.format(rotation)
+                            text_attrs['text-anchor'] = 'middle'
+                            text_attrs['dominant-baseline'] = 'middle'
+                            text_attrs['y'] = 0
+                            text_attrs['transform'] = 'rotate({},{},{})'.format(
+                                rotation_str,
+                                '{:g}'.format(text_attrs['x']),
+                                '0'
+                            )
+                        if not isinstance(text_value, str):
+                            text_value = str(text_value)
+                        atext = [['text', text_attrs] + tspan(text_value)]
                     attrs.append(['g', {
                         'transform': t(0, i*self.fontsize)
                     }, *atext])

@@ -7,6 +7,14 @@ from subprocess import run, CalledProcessError
 from .render_report import render_report
 
 
+def _walk(node):
+    if isinstance(node, list):
+        yield node
+        for child in node[2:]:
+            if isinstance(child, list):
+                yield from _walk(child)
+
+
 @pytest.mark.parametrize('bits', [31, 16, 8])
 @pytest.mark.parametrize('compact', [True, False])
 @pytest.mark.parametrize('hflip', [True, False])
@@ -138,6 +146,45 @@ def test_types_config_color_override_allows_hex_without_hash():
 def test_types_config_requires_mapping():
     with pytest.raises(TypeError):
         render([], types=["not", "a", "mapping"])
+
+
+def test_attr_allows_single_text_rotation():
+    reg = [
+        {"name": "field", "bits": 4, "attr": ["rotated", -90]},
+    ]
+
+    jsonml = render(reg, bits=8)
+
+    rotated_node = None
+    for node in _walk(jsonml):
+        if node and node[0] == 'text':
+            attrs = node[1]
+            for child in node[2:]:
+                if (
+                    isinstance(child, list)
+                    and len(child) >= 3
+                    and child[0] == 'tspan'
+                    and child[2] == 'rotated'
+                ):
+                    rotated_node = node
+                    break
+            if rotated_node is not None:
+                break
+
+    assert rotated_node is not None, "rotated attribute text not found"
+
+    attrs = rotated_node[1]
+    assert attrs.get('text-anchor') == 'middle'
+    assert attrs.get('dominant-baseline') == 'middle'
+    assert attrs.get('y') == 0
+    transform = attrs.get('transform')
+    assert transform is not None
+
+    assert transform.startswith('rotate(')
+    angle, pivot_x, pivot_y = transform[7:-1].split(',')
+    assert float(angle) == pytest.approx(-90)
+    assert float(pivot_x) == pytest.approx(attrs['x'])
+    assert float(pivot_y) == pytest.approx(attrs['y'])
 
 
 def test_field_name_supports_newlines():
