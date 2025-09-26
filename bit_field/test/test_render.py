@@ -1,6 +1,7 @@
 import pytest
 import json
 from .. import render
+from ..render import Renderer
 from ..jsonml_stringify import jsonml_stringify
 from pathlib import Path
 from subprocess import run, CalledProcessError
@@ -13,6 +14,17 @@ def _walk(node):
         for child in node[2:]:
             if isinstance(child, list):
                 yield from _walk(child)
+
+
+def _contains_text(node, text):
+    if not isinstance(node, list):
+        return False
+    if node and node[0] == 'tspan' and len(node) >= 3 and node[2] == text:
+        return True
+    for child in node[2:]:
+        if _contains_text(child, text):
+            return True
+    return False
 
 
 @pytest.mark.parametrize('bits', [31, 16, 8])
@@ -186,7 +198,10 @@ def test_attr_allows_single_text_rotation():
     assert rect_attrs is not None, "field rectangle not found"
 
     font_size = attrs['font-size']
-    expected_y = rect_attrs['y'] - font_size * 0.2
+    renderer = Renderer(bits=8, fontsize=font_size)
+    upward, _ = renderer._rotated_text_extents('rotated', -90)
+    margin = font_size * 0.2
+    expected_y = rect_attrs['y'] + margin + upward
     assert attrs.get('y') == pytest.approx(expected_y)
     transform = attrs.get('transform')
     assert transform is not None
@@ -233,7 +248,10 @@ def test_attr_rotated_text_offsets_below_field_for_positive_angles():
     assert rect_attrs is not None, "field rectangle not found"
 
     font_size = attrs['font-size']
-    expected_y = rect_attrs['y'] + rect_attrs['height'] + font_size * 0.2
+    renderer = Renderer(bits=8, fontsize=font_size)
+    upward, _ = renderer._rotated_text_extents('rotated', 90)
+    margin = font_size * 0.2
+    expected_y = rect_attrs['y'] + margin + upward
 
     assert attrs.get('y') == pytest.approx(expected_y)
     transform = attrs.get('transform')
@@ -243,6 +261,46 @@ def test_attr_rotated_text_offsets_below_field_for_positive_angles():
     assert float(angle) == pytest.approx(90)
     assert float(pivot_x) == pytest.approx(attrs['x'])
     assert float(pivot_y) == pytest.approx(attrs['y'])
+
+
+def test_rotated_attr_increases_attribute_height():
+    reg = [
+        {"name": "field", "bits": 4, "attr": [["vertical", -90], "RO"]},
+    ]
+
+    jsonml = render(reg, bits=8)
+
+    vertical_group = None
+    ro_group = None
+    for node in _walk(jsonml):
+        if node and node[0] == 'g':
+            transform = node[1].get('transform')
+            if not isinstance(transform, str) or not transform.startswith('translate(0'):
+                continue
+            if _contains_text(node, 'vertical'):
+                vertical_group = node
+            if _contains_text(node, 'RO'):
+                ro_group = node
+
+    assert vertical_group is not None, "rotated attribute group not found"
+    assert ro_group is not None, "secondary attribute group not found"
+
+    def extract_offset(group):
+        transform = group[1]['transform']
+        prefix = 'translate(0,'
+        assert transform.startswith(prefix)
+        value = transform[len(prefix):-1]
+        return float(value.strip())
+
+    first_offset = extract_offset(vertical_group)
+    second_offset = extract_offset(ro_group)
+
+    assert first_offset == pytest.approx(0)
+
+    renderer = Renderer(bits=8)
+    expected_offset = renderer._attribute_line_height(["vertical", -90])
+    assert second_offset == pytest.approx(expected_offset)
+    assert second_offset > renderer.fontsize
 
 
 def test_field_name_supports_newlines():

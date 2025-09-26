@@ -30,6 +30,15 @@ def _parse_rotated_attribute(value):
     return text, rotation
 
 
+def _normalize_attributes(value):
+    rotation_spec = _parse_rotated_attribute(value)
+    if rotation_spec is not None:
+        return [value]
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
 def typeStyle(t):
     return ';fill:' + typeColor(t)
 
@@ -123,6 +132,7 @@ def typeColor(t):
 
 class Renderer(object):
     ARROW_JUMP_HEAD_LENGTH = 10
+    AVERAGE_CHAR_WIDTH_EM = 0.6
 
     def __init__(self,
                  vspace=80,
@@ -190,6 +200,53 @@ class Renderer(object):
 
         self.grid_draw = grid_draw
         self.type_overrides = _parse_type_overrides(types)
+
+    def _estimate_text_width(self, text):
+        if isinstance(text, str):
+            content = text
+        else:
+            content = str(text)
+        if not content:
+            return self.fontsize * self.AVERAGE_CHAR_WIDTH_EM
+        return max(len(content), 1) * self.fontsize * self.AVERAGE_CHAR_WIDTH_EM
+
+    def _rotated_text_extents(self, text, rotation):
+        width = self._estimate_text_width(text)
+        height = self.fontsize
+        radians = math.radians(rotation % 360)
+        sin_theta = math.sin(radians)
+        cos_theta = math.cos(radians)
+        half_width = width / 2
+        corners = [
+            (-half_width, 0),
+            (half_width, 0),
+            (-half_width, height),
+            (half_width, height),
+        ]
+        y_values = [sin_theta * x + cos_theta * y for x, y in corners]
+        min_y = min(y_values)
+        max_y = max(y_values)
+        upward = max(0.0, -min_y)
+        downward = max(0.0, max_y)
+        return upward, downward
+
+    def _attribute_line_height(self, attribute):
+        if isinstance(attribute, int):
+            return self.fontsize
+        rotation_spec = _parse_rotated_attribute(attribute)
+        if rotation_spec is not None:
+            text_value, rotation = rotation_spec
+            radians = math.radians(rotation % 360)
+            if abs(math.sin(radians)) < 1e-6 and abs(math.cos(radians)) >= 1 - 1e-6:
+                return self.fontsize
+            upward, downward = self._rotated_text_extents(text_value, rotation)
+            extent = upward + downward
+            margin = self.fontsize * 0.2
+            return max(self.fontsize, extent + margin)
+        if isinstance(attribute, str):
+            line_count = attribute.count('\n') + 1
+            return self.fontsize * max(1, line_count)
+        return self.fontsize
 
     def get_total_bits(self, desc):
         lsb = 0
@@ -354,16 +411,18 @@ class Renderer(object):
         if self.arrow_jumps is not None:
             self._validate_arrow_jumps()
 
-        max_attr_count = 0
+        max_attr_height = 0
         for e in desc:
-            if 'attr' in e:
-                if isinstance(e['attr'], list):
-                    max_attr_count = max(max_attr_count, len(e['attr']))
-                else:
-                    max_attr_count = max(max_attr_count, 1)
+            if 'attr' not in e:
+                continue
+            attributes = _normalize_attributes(e['attr'])
+            total_height = 0
+            for attribute in attributes:
+                total_height += self._attribute_line_height(attribute)
+            max_attr_height = max(max_attr_height, total_height)
 
         if not self.compact:
-            self.vlane = self.vspace - self.fontsize * (1.2 + max_attr_count)
+            self.vlane = self.vspace - self.fontsize * 1.2 - max_attr_height
             height = self.vspace * self.lanes  + self.stroke_width / 2
         else:
             self.vlane = self.vspace - self.fontsize * 1.2
@@ -962,14 +1021,10 @@ class Renderer(object):
                 }])
             if 'attr' in e and not self.compact:
                 raw_attr = e['attr']
-                rotated = _parse_rotated_attribute(raw_attr)
-                if rotated is not None:
-                    e_attr = [raw_attr]
-                elif isinstance(raw_attr, list):
-                    e_attr = raw_attr
-                else:
-                    e_attr = [raw_attr]
-                for i, attribute in enumerate(e_attr):
+                e_attr = _normalize_attributes(raw_attr)
+                attr_offset = 0
+                for attribute in e_attr:
+                    line_height = self._attribute_line_height(attribute)
                     rotation_spec = _parse_rotated_attribute(attribute)
                     if isinstance(attribute, int):
                         atext = []
@@ -994,34 +1049,35 @@ class Renderer(object):
                             'font-weight': self.fontweight
                         }
                         if rotation_spec is not None:
-                            text_value, rotation = rotation_spec
+                            raw_text, rotation = rotation_spec
+                            if not isinstance(raw_text, str):
+                                text_value = str(raw_text)
+                            else:
+                                text_value = raw_text
                             rotation_str = '{:g}'.format(rotation)
                             rotation_radians = math.radians(rotation % 360)
-                            sin_theta = math.sin(rotation_radians)
                             margin = self.fontsize * 0.2
-                            if abs(sin_theta) < 1e-6:
+                            if abs(math.sin(rotation_radians)) < 1e-6 and abs(math.cos(rotation_radians)) >= 1 - 1e-6:
                                 pivot_y = self.fontsize / 2
                             else:
+                                upward, downward = self._rotated_text_extents(text_value, rotation)
                                 top_edge = self.stroke_width / 2
-                                bottom_edge = self.vlane
-                                if sin_theta < 0:
-                                    pivot_y = top_edge - margin
-                                else:
-                                    pivot_y = bottom_edge + margin
+                                pivot_y = top_edge + margin + upward
                             text_attrs['text-anchor'] = 'middle'
                             text_attrs['dominant-baseline'] = 'hanging'
                             text_attrs['y'] = pivot_y
                             text_attrs['transform'] = 'rotate({},{},{})'.format(
                                 rotation_str,
                                 '{:g}'.format(text_attrs['x']),
-                                '{:g}'.format(pivot_y)
+                                '{:g}'.format(text_attrs['y'])
                             )
                         if not isinstance(text_value, str):
                             text_value = str(text_value)
                         atext = [['text', text_attrs] + tspan(text_value)]
                     attrs.append(['g', {
-                        'transform': t(0, i*self.fontsize)
+                        'transform': t(0, attr_offset)
                     }, *atext])
+                    attr_offset += line_height
         if not self.compact or (self.index == 0):
             if self.compact:
                 for i in range(self.mod):
