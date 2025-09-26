@@ -164,3 +164,41 @@ def test_field_name_supports_newlines():
     assert any(span[2] == 'Lorem ipsum' for span in matching_spans)
     dolor_span = next(span for span in matching_spans if span[2] == 'dolor')
     assert 'dy' in dolor_span[1]
+
+
+def _collect_text_values(node, collected):
+    if isinstance(node, list):
+        if node and node[0] == 'text':
+            for child in node[2:]:
+                if isinstance(child, str):
+                    collected.append(child)
+        for child in node[1:]:
+            _collect_text_values(child, collected)
+
+
+def test_number_draw_enabled_by_default():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    jsonml = render(reg, bits=8)
+
+    texts = []
+    _collect_text_values(jsonml, texts)
+
+    assert '0' in texts
+    assert '7' in texts
+
+
+def test_number_draw_can_be_disabled():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    jsonml = render(reg, bits=8, number_draw=False)
+
+    texts = []
+    _collect_text_values(jsonml, texts)
+
+    assert '0' not in texts
+    assert '7' not in texts
