@@ -303,6 +303,29 @@ def test_rotated_attr_increases_attribute_height():
     assert second_offset > renderer.fontsize
 
 
+def test_rotated_attr_expands_canvas_height():
+    base_reg = [
+        {"name": "field", "bits": 4},
+    ]
+    rotated_reg = [
+        {"name": "field", "bits": 4, "attr": ["vertical", -90]},
+    ]
+
+    base = render(base_reg, bits=8)
+    rotated = render(rotated_reg, bits=8)
+
+    base_height = float(base[1]['height'])
+    rotated_height = float(rotated[1]['height'])
+
+    assert rotated_height > base_height
+
+    base_viewbox = [float(v) for v in base[1]['viewBox'].split()]
+    rotated_viewbox = [float(v) for v in rotated[1]['viewBox'].split()]
+
+    assert base_viewbox[3] == pytest.approx(base_height)
+    assert rotated_viewbox[3] == pytest.approx(rotated_height)
+
+
 def test_field_name_supports_newlines():
     reg = [
         {"name": "Lorem ipsum\ndolor", "bits": 32, "type": "gray"},

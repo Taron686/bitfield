@@ -248,6 +248,28 @@ class Renderer(object):
             return self.fontsize * max(1, line_count)
         return self.fontsize
 
+    def _attribute_bottom_offset(self, attribute):
+        if isinstance(attribute, int):
+            return 0
+        rotation_spec = _parse_rotated_attribute(attribute)
+        if rotation_spec is not None:
+            text_value, rotation = rotation_spec
+            if not isinstance(text_value, str):
+                text_value = str(text_value)
+            radians = math.radians(rotation % 360)
+            if abs(math.sin(radians)) < 1e-6 and abs(math.cos(radians)) >= 1 - 1e-6:
+                return self.fontsize
+            upward, downward = self._rotated_text_extents(text_value, rotation)
+            margin = self.fontsize * 0.2
+            top_edge = self.stroke_width / 2
+            return top_edge + margin + upward + downward
+        if isinstance(attribute, str):
+            line_count = attribute.count('\n') + 1
+            if line_count <= 1:
+                return 0
+            return self.fontsize * (line_count - 1)
+        return 0
+
     def get_total_bits(self, desc):
         lsb = 0
         for e in desc:
@@ -412,20 +434,34 @@ class Renderer(object):
             self._validate_arrow_jumps()
 
         max_attr_height = 0
+        max_attr_bottom_offset = 0
+        has_attributes = False
         for e in desc:
             if 'attr' not in e:
                 continue
+            has_attributes = True
             attributes = _normalize_attributes(e['attr'])
             total_height = 0
+            max_bottom = 0
             for attribute in attributes:
-                total_height += self._attribute_line_height(attribute)
+                line_height = self._attribute_line_height(attribute)
+                bottom_offset = self._attribute_bottom_offset(attribute)
+                max_bottom = max(max_bottom, total_height + bottom_offset)
+                total_height += line_height
             max_attr_height = max(max_attr_height, total_height)
+            max_attr_bottom_offset = max(max_attr_bottom_offset, max_bottom)
 
         if not self.compact:
             self.vlane = self.vspace - self.fontsize * 1.2 - max_attr_height
-            height = self.vspace * self.lanes  + self.stroke_width / 2
+            if has_attributes:
+                required_spacing = self.fontsize * 1.2 + self.vlane + self.fontsize + max_attr_bottom_offset
+            else:
+                required_spacing = self.vspace
+            self.lane_spacing = max(self.vspace, required_spacing)
+            height = self.lane_spacing * self.lanes + self.stroke_width / 2
         else:
             self.vlane = self.vspace - self.fontsize * 1.2
+            self.lane_spacing = self.vspace
             height = self.vlane * (self.lanes - 1) + self.vspace + self.stroke_width / 2
         if self.legend:
             height += self.fontsize * 1.2
@@ -851,7 +887,7 @@ class Renderer(object):
             else:
                 dy = 0
         else:
-            dy = self.index * self.vspace
+            dy = self.index * getattr(self, 'lane_spacing', self.vspace)
         if self.legend:
             dy += self.fontsize * 1.2
         res = ['g', {
@@ -1016,7 +1052,7 @@ class Renderer(object):
                     'x': step * (lsb_pos if self.vflip else msb_pos),
                     'y': self.stroke_width / 2,
                     'width': step * (msbm - lsbm + 1),
-                    'height': self.vlane - self.stroke_width / 2,
+                    'height': max(self.vlane - self.stroke_width / 2, self.stroke_width),
                     'fill': self.type_color(e['type']),
                 }])
             if 'attr' in e and not self.compact:
