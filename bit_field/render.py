@@ -996,13 +996,14 @@ class Renderer(object):
                         if rotation_spec is not None:
                             text_value, rotation = rotation_spec
                             rotation_str = '{:g}'.format(rotation)
+                            pivot_y = self.fontsize / 2
                             text_attrs['text-anchor'] = 'middle'
-                            text_attrs['dominant-baseline'] = 'middle'
-                            text_attrs['y'] = 0
+                            text_attrs['dominant-baseline'] = 'hanging'
+                            text_attrs['y'] = pivot_y
                             text_attrs['transform'] = 'rotate({},{},{})'.format(
                                 rotation_str,
                                 '{:g}'.format(text_attrs['x']),
-                                '0'
+                                '{:g}'.format(pivot_y)
                             )
                         if not isinstance(text_value, str):
                             text_value = str(text_value)

@@ -175,8 +175,8 @@ def test_attr_allows_single_text_rotation():
 
     attrs = rotated_node[1]
     assert attrs.get('text-anchor') == 'middle'
-    assert attrs.get('dominant-baseline') == 'middle'
-    assert attrs.get('y') == 0
+    assert attrs.get('dominant-baseline') == 'hanging'
+    assert attrs.get('y') == pytest.approx(7)
     transform = attrs.get('transform')
     assert transform is not None
 
