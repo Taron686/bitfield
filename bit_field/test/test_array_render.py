@@ -169,6 +169,66 @@ def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
     assert lane4_coords[2][0] == pytest.approx(step * 16)
     assert lane4_coords[3][0] == pytest.approx(0)
 
+
+def test_array_text_aligns_to_first_lane_when_partial():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 48, 'name': 't dolore'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                texts.append((node[1], extract_text_content(node)))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 't dolore')
+
+    base_y = renderer.fontsize * 1.2
+    start_lane = 96 // renderer.mod
+    first_lane_center = base_y + renderer.vlane * start_lane + renderer.vlane / 2
+    expected_y = first_lane_center + renderer.fontsize / 2
+    assert float(gap_text['y']) == pytest.approx(expected_y)
+
+
+def test_array_text_stays_centered_for_full_lane_multiples():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 64, 'name': 'centered'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                texts.append((node[1], extract_text_content(node)))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'centered')
+
+    base_y = renderer.fontsize * 1.2
+    start_lane = 96 // renderer.mod
+    lane_span = 64 // renderer.mod
+    center_y = base_y + renderer.vlane * start_lane + renderer.vlane * lane_span / 2
+    expected_y = center_y + renderer.fontsize / 2
+    assert float(gap_text['y']) == pytest.approx(expected_y)
+
+
 def test_array_full_lane_wedge():
     reg = [
         {'name': 'head', 'bits': 8},

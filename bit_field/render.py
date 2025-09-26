@@ -749,6 +749,9 @@ class Renderer(object):
                     lines = name.split('\n')
                     mid_x = (x1 + x2_outer) / 2
                     center_y = (top_y + bottom_y) / 2
+                    first_lane_center = top_y + self.vlane / 2
+                    align_first_lane = (length % self.mod) != 0
+                    base_center = first_lane_center if align_first_lane else center_y
                     text_color = e.get('font_color', 'black')
                     text_attrs = {
                         'x': mid_x,
@@ -760,11 +763,14 @@ class Renderer(object):
                         'stroke': 'none'
                     }
                     if len(lines) == 1:
-                        text_attrs['y'] = center_y + self.fontsize / 2
+                        text_attrs['y'] = base_center + self.fontsize / 2
                         grp.append(['text', text_attrs] + tspan(lines[0]))
                     else:
                         line_height = self.fontsize * 1.2
-                        first_line_y = center_y + self.fontsize / 2 - line_height * (len(lines) - 1) / 2
+                        if align_first_lane:
+                            first_line_y = first_lane_center + self.fontsize / 2
+                        else:
+                            first_line_y = center_y + self.fontsize / 2 - line_height * (len(lines) - 1) / 2
                         text_element = ['text', text_attrs]
                         for i, line in enumerate(lines):
                             spans = tspan(line)
