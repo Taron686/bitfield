@@ -996,7 +996,18 @@ class Renderer(object):
                         if rotation_spec is not None:
                             text_value, rotation = rotation_spec
                             rotation_str = '{:g}'.format(rotation)
-                            pivot_y = self.fontsize / 2
+                            rotation_radians = math.radians(rotation % 360)
+                            sin_theta = math.sin(rotation_radians)
+                            margin = self.fontsize * 0.2
+                            if abs(sin_theta) < 1e-6:
+                                pivot_y = self.fontsize / 2
+                            else:
+                                top_edge = self.stroke_width / 2
+                                bottom_edge = self.vlane
+                                if sin_theta < 0:
+                                    pivot_y = top_edge - margin
+                                else:
+                                    pivot_y = bottom_edge + margin
                             text_attrs['text-anchor'] = 'middle'
                             text_attrs['dominant-baseline'] = 'hanging'
                             text_attrs['y'] = pivot_y

@@ -150,7 +150,7 @@ def test_types_config_requires_mapping():
 
 def test_attr_allows_single_text_rotation():
     reg = [
-        {"name": "field", "bits": 4, "attr": ["rotated", -90]},
+        {"name": "field", "bits": 4, "type": "gray", "attr": ["rotated", -90]},
     ]
 
     jsonml = render(reg, bits=8)
@@ -176,13 +176,71 @@ def test_attr_allows_single_text_rotation():
     attrs = rotated_node[1]
     assert attrs.get('text-anchor') == 'middle'
     assert attrs.get('dominant-baseline') == 'hanging'
-    assert attrs.get('y') == pytest.approx(7)
+
+    rect_attrs = None
+    for node in _walk(jsonml):
+        if node and node[0] == 'rect':
+            rect_attrs = node[1]
+            break
+
+    assert rect_attrs is not None, "field rectangle not found"
+
+    font_size = attrs['font-size']
+    expected_y = rect_attrs['y'] - font_size * 0.2
+    assert attrs.get('y') == pytest.approx(expected_y)
     transform = attrs.get('transform')
     assert transform is not None
 
     assert transform.startswith('rotate(')
     angle, pivot_x, pivot_y = transform[7:-1].split(',')
     assert float(angle) == pytest.approx(-90)
+    assert float(pivot_x) == pytest.approx(attrs['x'])
+    assert float(pivot_y) == pytest.approx(attrs['y'])
+
+
+def test_attr_rotated_text_offsets_below_field_for_positive_angles():
+    reg = [
+        {"name": "field", "bits": 4, "type": "gray", "attr": ["rotated", 90]},
+    ]
+
+    jsonml = render(reg, bits=8)
+
+    rotated_node = None
+    for node in _walk(jsonml):
+        if node and node[0] == 'text':
+            attrs = node[1]
+            for child in node[2:]:
+                if (
+                    isinstance(child, list)
+                    and len(child) >= 3
+                    and child[0] == 'tspan'
+                    and child[2] == 'rotated'
+                ):
+                    rotated_node = node
+                    break
+            if rotated_node is not None:
+                break
+
+    assert rotated_node is not None, "rotated attribute text not found"
+
+    attrs = rotated_node[1]
+    rect_attrs = None
+    for node in _walk(jsonml):
+        if node and node[0] == 'rect':
+            rect_attrs = node[1]
+            break
+
+    assert rect_attrs is not None, "field rectangle not found"
+
+    font_size = attrs['font-size']
+    expected_y = rect_attrs['y'] + rect_attrs['height'] + font_size * 0.2
+
+    assert attrs.get('y') == pytest.approx(expected_y)
+    transform = attrs.get('transform')
+    assert transform is not None and transform.startswith('rotate(')
+
+    angle, pivot_x, pivot_y = transform[7:-1].split(',')
+    assert float(angle) == pytest.approx(90)
     assert float(pivot_x) == pytest.approx(attrs['x'])
     assert float(pivot_y) == pytest.approx(attrs['y'])
 
