@@ -176,6 +176,16 @@ def _collect_text_values(node, collected):
             _collect_text_values(child, collected)
 
 
+def _collect_transform_values(node, collected):
+    if isinstance(node, list):
+        if len(node) > 1 and isinstance(node[1], dict):
+            transform = node[1].get('transform')
+            if transform is not None:
+                collected.append(transform)
+        for child in node[1:]:
+            _collect_transform_values(child, collected)
+
+
 def test_number_draw_enabled_by_default():
     reg = [
         {"name": "field", "bits": 8},
@@ -202,3 +212,26 @@ def test_number_draw_can_be_disabled():
 
     assert '0' not in texts
     assert '7' not in texts
+
+
+def test_number_draw_disabled_removes_label_offset():
+    reg = [
+        {"name": "field", "bits": 8},
+    ]
+
+    with_numbers = render(reg, bits=8)
+    without_numbers = render(reg, bits=8, number_draw=False)
+
+    transforms_with = []
+    _collect_transform_values(with_numbers, transforms_with)
+
+    transforms_without = []
+    _collect_transform_values(without_numbers, transforms_without)
+
+    label_offsets = {
+        value for value in transforms_with
+        if value.startswith('translate(0, ') and value != 'translate(0, 0)'
+    }
+
+    assert label_offsets, 'expected bit-number offsets when number_draw is enabled'
+    assert label_offsets.isdisjoint(transforms_without)
