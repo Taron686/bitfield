@@ -89,6 +89,242 @@ def test_array_gap_width():
     assert coords[1][0] == pytest.approx(coords[0][0] + width)
     assert coords[3][0] == pytest.approx(coords[2][0] - width)
 
+
+def test_array_gap_fill_used_for_background_when_no_type():
+    reg = [
+        {'name': 'length1', 'bits': 8},
+        {'array': 8, 'gap_fill': '#abc', 'name': 'gap'},
+        {'name': 'rest', 'bits': 8},
+    ]
+    renderer = Renderer(bits=16)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+
+    background = [
+        p for p in polygons
+        if p.get('fill') == '#abc' and p.get('stroke') == 'none'
+    ]
+    assert background, 'expected background polygon to use gap_fill colour'
+
+
+def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 48, 'name': 't dolore', 'gap_fill': '#B0BEC5'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_polygons(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polys.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child, polys)
+
+    polygons = []
+    collect_polygons(jsonml, polygons)
+
+    backgrounds = [
+        p for p in polygons
+        if p.get('fill') == '#B0BEC5' and p.get('stroke') == 'none'
+    ]
+    assert len(backgrounds) == 2
+
+    base_y = renderer.fontsize * 1.2
+    step = renderer.hspace / renderer.mod
+
+    lane3_coords = None
+    lane4_coords = None
+    for poly in backgrounds:
+        coords = [tuple(map(float, point.split(','))) for point in poly['points'].split()]
+        ys = [y for _, y in coords]
+        center = (min(ys) + max(ys)) / 2
+        if center == pytest.approx(base_y + renderer.vlane * (3 + 0.5), abs=0.5):
+            lane3_coords = coords
+        elif center == pytest.approx(base_y + renderer.vlane * (4 + 0.5), abs=0.5):
+            lane4_coords = coords
+
+    assert lane3_coords is not None
+    assert lane4_coords is not None
+
+    assert lane3_coords[0][0] == pytest.approx(0)
+    assert lane3_coords[1][0] == pytest.approx(renderer.hspace)
+    assert lane3_coords[2][0] == pytest.approx(renderer.hspace)
+    assert lane3_coords[3][0] == pytest.approx(0)
+
+    assert lane4_coords[0][0] == pytest.approx(0)
+    assert lane4_coords[1][0] == pytest.approx(step * 16)
+    assert lane4_coords[2][0] == pytest.approx(step * 16)
+    assert lane4_coords[3][0] == pytest.approx(0)
+
+
+def test_hidden_array_draws_boundary_for_following_fields():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {
+            'array': 48,
+            'name': 't dolore',
+            'type': '#B0BEC5',
+            'hide_lines': True,
+            'gap_fill': '#B0BEC5',
+        },
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    lines = []
+
+    def collect_lines(node):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child)
+
+    collect_lines(jsonml)
+
+    horizontals = [
+        attrs for attrs in lines
+        if attrs.get('y1', 0) == attrs.get('y2', 0)
+    ]
+
+    step = renderer.hspace / renderer.mod
+    trailing_segments = [
+        attrs for attrs in horizontals
+        if 'x1' in attrs
+        and attrs.get('x1') == pytest.approx(step * 16)
+        and attrs.get('x2') == pytest.approx(renderer.hspace)
+        and attrs.get('y1', 0) == pytest.approx(0)
+    ]
+
+    assert trailing_segments, 'expected a horizontal boundary after the hidden array'
+
+    segment = trailing_segments[0]
+    assert segment.get('y1') == pytest.approx(0)
+    assert segment.get('y2') == pytest.approx(0)
+
+
+def test_array_text_aligns_to_first_lane_when_partial():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 48, 'name': 't dolore'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                texts.append((node[1], extract_text_content(node)))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 't dolore')
+
+    base_y = renderer.fontsize * 1.2
+    start_lane = 96 // renderer.mod
+    first_lane_center = base_y + renderer.vlane * start_lane + renderer.vlane / 2
+    expected_y = first_lane_center + renderer.fontsize / 2
+    assert float(gap_text['y']) == pytest.approx(expected_y)
+
+
+def test_array_gap_hide_lines_background_rectangles_overlap():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {
+            'array': 48,
+            'name': 't dolore',
+            'gap_fill': '#B0BEC5',
+            'hide_lines': True,
+            'type': '#B0BEC5',
+        },
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_backgrounds(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                attrs = node[1]
+                if attrs.get('stroke') == 'none' and attrs.get('fill') == '#B0BEC5':
+                    coords = [
+                        tuple(map(float, point.split(',')))
+                        for point in attrs['points'].split()
+                    ]
+                    xs = {x for x, _ in coords}
+                    if any(abs(val) < 1e-6 or abs(val - renderer.hspace) < 1e-6 for val in xs):
+                        polys.append(coords)
+            for child in node[1:]:
+                collect_backgrounds(child, polys)
+
+    backgrounds = []
+    collect_backgrounds(jsonml, backgrounds)
+
+    assert len(backgrounds) == 2
+
+    backgrounds.sort(key=lambda coords: min(y for _, y in coords))
+    first = backgrounds[0]
+    second = backgrounds[1]
+    first_bottom = max(y for _, y in first)
+    second_top = min(y for _, y in second)
+
+    expected_overlap = min(renderer.vlane * 0.05, 0.5) * 2
+    assert first_bottom - second_top >= expected_overlap - 1e-6
+
+def test_array_text_stays_centered_for_full_lane_multiples():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {'array': 64, 'name': 'centered'},
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_texts(node, texts):
+        if isinstance(node, list):
+            if node and node[0] == 'text':
+                texts.append((node[1], extract_text_content(node)))
+            for child in node[1:]:
+                collect_texts(child, texts)
+
+    texts = []
+    collect_texts(jsonml, texts)
+    gap_text = next(attrs for attrs, content in texts if content == 'centered')
+
+    base_y = renderer.fontsize * 1.2
+    start_lane = 96 // renderer.mod
+    lane_span = 64 // renderer.mod
+    center_y = base_y + renderer.vlane * start_lane + renderer.vlane * lane_span / 2
+    expected_y = center_y + renderer.fontsize / 2
+    assert float(gap_text['y']) == pytest.approx(expected_y)
+
+
 def test_array_full_lane_wedge():
     reg = [
         {'name': 'head', 'bits': 8},
@@ -203,6 +439,88 @@ def test_array_hide_lines_skips_grid_and_horizontal():
         if attrs.get('y1', 0) == attrs.get('y2', 0)
     ]
     tiny_verticals = [attrs for attrs in lines if attrs.get('y2') == 7.9]
+    styled_lines = [attrs for attrs in lines if 'stroke' in attrs]
 
     assert len(horizontals) == 2
     assert tiny_verticals == []
+    assert styled_lines == []
+
+    polygons = []
+
+    def collect_polygons(node):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                polygons.append(node[1])
+            for child in node[1:]:
+                collect_polygons(child)
+
+    collect_polygons(jsonml)
+
+    assert all(poly.get('stroke') in (None, 'none') for poly in polygons)
+
+
+def test_array_hide_lines_restores_top_line_for_trailing_field():
+    reg = [
+        {"name": "Lorem ipsum dolor", "bits": 32, "type": "gray"},
+        {"name": "consetetur sadipsci", "bits": 32, "type": 1},
+        {"name": "ipsum dolor", "bits": 32, "type": 1},
+        {"array": 48, "name": "t dolore", "type": "#B0BEC5", "hide_lines": True, "gap_fill": "#B0BEC5"},
+        {"name": "dolores", "bits": 16, "type": 1},
+        {"name": "ea takima", "bits": 8, "type": 1},
+        {"name": "s est Lorem", "bits": 24, "type": [125, 36, 200]},
+    ]
+
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    step = renderer.hspace / renderer.mod
+    base_y = renderer.fontsize * 1.2
+
+    bit_pos = 0
+    start = end = None
+    for entry in reg:
+        if 'array' in entry:
+            start = bit_pos
+            length = entry['array'][-1] if isinstance(entry['array'], list) else entry['array']
+            end = start + length
+            break
+        bit_pos += entry.get('bits', 0)
+
+    assert start is not None and end is not None
+
+    end_lane = (end - 1) // renderer.mod if end > 0 else 0
+    trailing_offset = end % renderer.mod
+    assert trailing_offset != 0
+
+    skip_count = 0
+    if renderer.uneven and renderer.lanes > 1 and end_lane == renderer.lanes - 1:
+        skip_count = renderer.mod - renderer.total_bits % renderer.mod
+        if skip_count == renderer.mod:
+            skip_count = 0
+
+    lane_left = 0 if renderer.vflip else step * skip_count
+    lane_right = lane_left + (renderer.mod - skip_count) * step
+    expected_start = lane_left + trailing_offset * step
+    expected_y = base_y + renderer.vlane * end_lane
+
+    lines = []
+
+    def collect_lines(node):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child)
+
+    collect_lines(jsonml)
+
+    matching = [
+        attrs for attrs in lines
+        if attrs.get('stroke') == 'black'
+        and attrs.get('y1') == attrs.get('y2')
+        and float(attrs['y1']) == pytest.approx(expected_y)
+        and float(attrs['x1']) == pytest.approx(expected_start)
+        and float(attrs['x2']) == pytest.approx(lane_right)
+    ]
+
+    assert matching

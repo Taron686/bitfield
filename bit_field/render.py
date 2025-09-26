@@ -714,31 +714,126 @@ class Renderer(object):
                 x2 = x2_outer - width
                 pts = f"{x1},{top_y} {x1+width},{top_y} {x2_outer},{bottom_y} {x2},{bottom_y}"
                 color = self.type_color(e.get('type')) if e.get('type') is not None else 'black'
-                grp = ['g', {'stroke': color, 'stroke-width': self.stroke_width}]
-                # fill the full gap bounds with the type color to avoid transparent edges
+                show_lines = not e.get('hide_lines')
+                grp_attrs = {'stroke-width': self.stroke_width}
+                if show_lines:
+                    grp_attrs['stroke'] = color
+                grp = ['g', grp_attrs]
+                # fill the full gap bounds to avoid transparent edges
+                background_fill = None
                 if e.get('type') is not None:
+                    background_fill = self.type_color(e['type'])
+                else:
+                    if e.get('fill') is not None:
+                        background_fill = e.get('fill')
+                    elif e.get('gap_fill') is not None:
+                        background_fill = e.get('gap_fill')
+                if background_fill is not None:
                     # use raw coordinates so the background reaches the lane boundaries
-                    left = x1_raw
-                    right = self.hspace if (x2_raw == 0 and end > start) else x2_raw
-                    rect = f"{left},{top_y} {right},{top_y} {right},{bottom_y} {left},{bottom_y}"
-                    grp.append(['polygon', {
-                        'points': rect,
-                        'fill': self.type_color(e['type']),
-                        'stroke': 'none'
-                    }])
+                    overlap = 0.0
+                    if end_lane > start_lane:
+                        overlap = min(self.vlane * 0.05, 0.5)
+                    for lane_idx in range(start_lane, end_lane + 1):
+                        lane_top = base_y + self.vlane * lane_idx
+                        lane_bottom = base_y + self.vlane * (lane_idx + 1)
+                        if overlap:
+                            if lane_idx > start_lane:
+                                lane_top -= overlap
+                            if lane_idx < end_lane:
+                                lane_bottom += overlap
+                        left = x1_raw if lane_idx == start_lane else 0
+                        if lane_idx == end_lane:
+                            right = x2_raw
+                            if right == 0 and end > start:
+                                right = self.hspace
+                        else:
+                            right = self.hspace
+                        rect = f"{left},{lane_top} {right},{lane_top} {right},{lane_bottom} {left},{lane_bottom}"
+                        grp.append(['polygon', {
+                            'points': rect,
+                            'fill': background_fill,
+                            'stroke': 'none'
+                        }])
                 # gap polygon on top, optionally with custom fill
                 gap_fill = e.get('gap_fill', e.get('fill', '#fff'))
-                grp.append(['polygon', {'points': pts, 'fill': gap_fill}])
-                grp.append(['line', {'x1': x1, 'y1': top_y, 'x2': x2, 'y2': bottom_y}])
-                grp.append(['line', {'x1': x1+width, 'y1': top_y, 'x2': x2_outer, 'y2': bottom_y}])
+                polygon_attrs = {'points': pts, 'fill': gap_fill}
+                if show_lines:
+                    polygon_attrs['stroke'] = color
+                else:
+                    polygon_attrs['stroke'] = 'none'
+                grp.append(['polygon', polygon_attrs])
+                if not show_lines:
+                    trailing_offset = end % self.mod
+                    if trailing_offset:
+                        lane_idx = end_lane
+                        skip_count = 0
+                        if self.uneven and self.lanes > 1 and lane_idx == self.lanes - 1:
+                            skip_count = self.mod - self.total_bits % self.mod
+                            if skip_count == self.mod:
+                                skip_count = 0
+                        lane_start_bit = lane_idx * self.mod
+                        lane_width_bits = self.mod - skip_count
+                        boundary_segments = self._boundary_segments(
+                            lane_start_bit,
+                            lane_width_bits,
+                            lane_start_bit,
+                        )
+                        if boundary_segments:
+                            hpos = 0 if self.vflip else step * skip_count
+                            lane_top = base_y + self.vlane * lane_idx
+                            for seg_start, seg_end in boundary_segments:
+                                if seg_end <= trailing_offset:
+                                    continue
+                                seg_start = max(seg_start, trailing_offset)
+                                if seg_start >= seg_end:
+                                    continue
+                                x_start = hpos + seg_start * step
+                                x_end = hpos + seg_end * step
+                                grp.append(['line', {
+                                    'x1': x_start,
+                                    'y1': lane_top,
+                                    'x2': x_end,
+                                    'y2': lane_top,
+                                    'stroke': 'black',
+                                    'stroke-width': self.stroke_width,
+                                    'stroke-linecap': 'butt',
+                                }])
+                if show_lines:
+                    grp.append(['line', {
+                        'x1': x1,
+                        'y1': top_y,
+                        'x2': x2,
+                        'y2': bottom_y,
+                        'stroke': color,
+                    }])
+                    grp.append(['line', {
+                        'x1': x1 + width,
+                        'y1': top_y,
+                        'x2': x2_outer,
+                        'y2': bottom_y,
+                        'stroke': color,
+                    }])
                 if 'name' in e:
                     name = str(e['name'])
                     lines = name.split('\n')
                     mid_x = (x1 + x2_outer) / 2
                     center_y = (top_y + bottom_y) / 2
+                    first_lane_center = top_y + self.vlane / 2
+                    align_first_lane = (length % self.mod) != 0
+                    label_x = mid_x
+                    if align_first_lane:
+                        start_offset = start % self.mod
+                        if start_offset:
+                            first_lane_bits = min(length, self.mod - start_offset)
+                        else:
+                            first_lane_bits = min(length, self.mod)
+                        lane_left = x1_raw
+                        lane_right = lane_left + first_lane_bits * step
+                        label_x = (lane_left + lane_right) / 2
+                    base_center = first_lane_center if align_first_lane else center_y
                     text_color = e.get('font_color', 'black')
                     text_attrs = {
-                        'x': mid_x,
+                        'x': label_x,
                         'font-size': self.fontsize,
                         'font-family': self.fontfamily,
                         'font-weight': self.fontweight,
@@ -747,11 +842,14 @@ class Renderer(object):
                         'stroke': 'none'
                     }
                     if len(lines) == 1:
-                        text_attrs['y'] = center_y + self.fontsize / 2
+                        text_attrs['y'] = base_center + self.fontsize / 2
                         grp.append(['text', text_attrs] + tspan(lines[0]))
                     else:
                         line_height = self.fontsize * 1.2
-                        first_line_y = center_y + self.fontsize / 2 - line_height * (len(lines) - 1) / 2
+                        if align_first_lane:
+                            first_line_y = first_lane_center + self.fontsize / 2
+                        else:
+                            first_line_y = center_y + self.fontsize / 2 - line_height * (len(lines) - 1) / 2
                         text_element = ['text', text_attrs]
                         for i, line in enumerate(lines):
                             spans = tspan(line)
@@ -760,7 +858,7 @@ class Renderer(object):
                             for j, span in enumerate(spans):
                                 span_attrs = dict(span[1])
                                 if j == 0:
-                                    span_attrs['x'] = mid_x
+                                    span_attrs['x'] = label_x
                                     span_attrs['y'] = first_line_y + line_height * i
                                 text_element.append(['tspan', span_attrs, span[2]])
                         grp.append(text_element)
@@ -803,15 +901,30 @@ class Renderer(object):
             if skip_count == self.mod:
                 skip_count = 0
 
-        hlen = (self.hspace / self.mod) * (self.mod - skip_count)
-        hpos = 0 if self.vflip else (self.hspace / self.mod) * (skip_count)
+        lane_start_bit = self.lane_index * self.mod
+        lane_width_bits = self.mod - skip_count
+        step = self.hspace / self.mod
+        hpos = 0 if self.vflip else step * skip_count
 
-        bottom_boundary = (self.lane_index + 1) * self.mod
-        if (not self.compact or self.hflip or self.lane_index == 0) and not self._boundary_hidden(bottom_boundary):
-            res.append(self.hline(hlen, hpos, self.vlane))  # bottom
-        top_boundary = self.lane_index * self.mod
-        if (not self.compact or not self.hflip or self.lane_index == 0) and not self._boundary_hidden(top_boundary):
-            res.append(self.hline(hlen, hpos))  # top
+        bottom_boundary = lane_start_bit + lane_width_bits
+        if not self.compact or self.hflip or self.lane_index == 0:
+            segments = self._boundary_segments(lane_start_bit, lane_width_bits, bottom_boundary)
+            for start_bits, end_bits in segments:
+                length_bits = end_bits - start_bits
+                if length_bits <= 0:
+                    continue
+                x = hpos + start_bits * step
+                res.append(self.hline(length_bits * step, x, self.vlane))  # bottom
+
+        top_boundary = lane_start_bit
+        if not self.compact or not self.hflip or self.lane_index == 0:
+            segments = self._boundary_segments(lane_start_bit, lane_width_bits, top_boundary)
+            for start_bits, end_bits in segments:
+                length_bits = end_bits - start_bits
+                if length_bits <= 0:
+                    continue
+                x = hpos + start_bits * step
+                res.append(self.hline(length_bits * step, x))  # top
 
         hbit = (self.hspace - self.stroke_width) / self.mod
         for bit_pos in range(self.mod):
@@ -836,11 +949,41 @@ class Renderer(object):
 
         return res
 
-    def _boundary_hidden(self, bit_pos):
+    def _boundary_segments(self, lane_start_bit, lane_width_bits, boundary_bit):
+        if lane_width_bits <= 0:
+            return []
+
+        lane_end_bit = lane_start_bit + lane_width_bits
+        overlaps = []
         for start, end in getattr(self, 'hidden_array_ranges', []):
-            if start < bit_pos < end:
-                return True
-        return False
+            if start < boundary_bit < end:
+                overlap_start = max(start, lane_start_bit)
+                overlap_end = min(end, lane_end_bit)
+                if overlap_start < overlap_end:
+                    overlaps.append((overlap_start, overlap_end))
+
+        if not overlaps:
+            return [(0, lane_width_bits)]
+
+        overlaps.sort()
+        merged = []
+        for start, end in overlaps:
+            if not merged or start > merged[-1][1]:
+                merged.append([start, end])
+            else:
+                merged[-1][1] = max(merged[-1][1], end)
+
+        segments = []
+        cursor = lane_start_bit
+        for start, end in merged:
+            if start > cursor:
+                segments.append((cursor - lane_start_bit, start - lane_start_bit))
+            cursor = max(cursor, end)
+
+        if cursor < lane_end_bit:
+            segments.append((cursor - lane_start_bit, lane_end_bit - lane_start_bit))
+
+        return segments
 
     def _bit_hidden(self, bit_pos):
         for start, end in getattr(self, 'hidden_array_ranges', []):
@@ -996,19 +1139,19 @@ class Renderer(object):
             res = ['g', {}, blanks, names, attrs]
         return res
 
-    def hline(self, len, x=0, y=0, padding=0):
+    def hline(self, length, x=0, y=0, padding=0):
         res = ['line']
-        att = {}
         if padding != 0:
-            len -= padding
-            x += padding/2
-        if x != 0:
-            att['x1'] = x
-        if len != 0:
-            att['x2'] = x + len
-        if y != 0:
-            att['y1'] = y
-            att['y2'] = y
+            length -= padding
+            x += padding / 2
+
+        end_x = x + length
+        att = {
+            'x1': x,
+            'x2': end_x,
+            'y1': y,
+            'y2': y,
+        }
         res.append(att)
         return res
 
