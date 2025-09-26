@@ -198,6 +198,17 @@ def test_array_text_aligns_to_first_lane_when_partial():
     expected_y = first_lane_center + renderer.fontsize / 2
     assert float(gap_text['y']) == pytest.approx(expected_y)
 
+    step = renderer.hspace / renderer.mod
+    start_offset = 96 % renderer.mod
+    if start_offset:
+        first_lane_bits = min(48, renderer.mod - start_offset)
+    else:
+        first_lane_bits = min(48, renderer.mod)
+    lane_left = start_offset * step
+    lane_right = lane_left + first_lane_bits * step
+    expected_x = (lane_left + lane_right) / 2
+    assert float(gap_text['x']) == pytest.approx(expected_x)
+
 
 def test_array_text_stays_centered_for_full_lane_multiples():
     reg = [

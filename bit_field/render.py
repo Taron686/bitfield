@@ -751,10 +751,20 @@ class Renderer(object):
                     center_y = (top_y + bottom_y) / 2
                     first_lane_center = top_y + self.vlane / 2
                     align_first_lane = (length % self.mod) != 0
+                    label_x = mid_x
+                    if align_first_lane:
+                        start_offset = start % self.mod
+                        if start_offset:
+                            first_lane_bits = min(length, self.mod - start_offset)
+                        else:
+                            first_lane_bits = min(length, self.mod)
+                        lane_left = x1_raw
+                        lane_right = lane_left + first_lane_bits * step
+                        label_x = (lane_left + lane_right) / 2
                     base_center = first_lane_center if align_first_lane else center_y
                     text_color = e.get('font_color', 'black')
                     text_attrs = {
-                        'x': mid_x,
+                        'x': label_x,
                         'font-size': self.fontsize,
                         'font-family': self.fontfamily,
                         'font-weight': self.fontweight,
@@ -779,7 +789,7 @@ class Renderer(object):
                             for j, span in enumerate(spans):
                                 span_attrs = dict(span[1])
                                 if j == 0:
-                                    span_attrs['x'] = mid_x
+                                    span_attrs['x'] = label_x
                                     span_attrs['y'] = first_line_y + line_height * i
                                 text_element.append(['tspan', span_attrs, span[2]])
                         grp.append(text_element)
