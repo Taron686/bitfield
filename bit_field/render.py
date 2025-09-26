@@ -862,15 +862,30 @@ class Renderer(object):
             if skip_count == self.mod:
                 skip_count = 0
 
-        hlen = (self.hspace / self.mod) * (self.mod - skip_count)
-        hpos = 0 if self.vflip else (self.hspace / self.mod) * (skip_count)
+        lane_start_bit = self.lane_index * self.mod
+        lane_width_bits = self.mod - skip_count
+        step = self.hspace / self.mod
+        hpos = 0 if self.vflip else step * skip_count
 
-        bottom_boundary = (self.lane_index + 1) * self.mod
-        if (not self.compact or self.hflip or self.lane_index == 0) and not self._boundary_hidden(bottom_boundary):
-            res.append(self.hline(hlen, hpos, self.vlane))  # bottom
-        top_boundary = self.lane_index * self.mod
-        if (not self.compact or not self.hflip or self.lane_index == 0) and not self._boundary_hidden(top_boundary):
-            res.append(self.hline(hlen, hpos))  # top
+        bottom_boundary = lane_start_bit + lane_width_bits
+        if not self.compact or self.hflip or self.lane_index == 0:
+            segments = self._boundary_segments(lane_start_bit, lane_width_bits, bottom_boundary)
+            for start_bits, end_bits in segments:
+                length_bits = end_bits - start_bits
+                if length_bits <= 0:
+                    continue
+                x = hpos + start_bits * step
+                res.append(self.hline(length_bits * step, x, self.vlane))  # bottom
+
+        top_boundary = lane_start_bit
+        if not self.compact or not self.hflip or self.lane_index == 0:
+            segments = self._boundary_segments(lane_start_bit, lane_width_bits, top_boundary)
+            for start_bits, end_bits in segments:
+                length_bits = end_bits - start_bits
+                if length_bits <= 0:
+                    continue
+                x = hpos + start_bits * step
+                res.append(self.hline(length_bits * step, x))  # top
 
         hbit = (self.hspace - self.stroke_width) / self.mod
         for bit_pos in range(self.mod):
@@ -895,11 +910,41 @@ class Renderer(object):
 
         return res
 
-    def _boundary_hidden(self, bit_pos):
+    def _boundary_segments(self, lane_start_bit, lane_width_bits, boundary_bit):
+        if lane_width_bits <= 0:
+            return []
+
+        lane_end_bit = lane_start_bit + lane_width_bits
+        overlaps = []
         for start, end in getattr(self, 'hidden_array_ranges', []):
-            if start < bit_pos < end:
-                return True
-        return False
+            if start < boundary_bit < end:
+                overlap_start = max(start, lane_start_bit)
+                overlap_end = min(end, lane_end_bit)
+                if overlap_start < overlap_end:
+                    overlaps.append((overlap_start, overlap_end))
+
+        if not overlaps:
+            return [(0, lane_width_bits)]
+
+        overlaps.sort()
+        merged = []
+        for start, end in overlaps:
+            if not merged or start > merged[-1][1]:
+                merged.append([start, end])
+            else:
+                merged[-1][1] = max(merged[-1][1], end)
+
+        segments = []
+        cursor = lane_start_bit
+        for start, end in merged:
+            if start > cursor:
+                segments.append((cursor - lane_start_bit, start - lane_start_bit))
+            cursor = max(cursor, end)
+
+        if cursor < lane_end_bit:
+            segments.append((cursor - lane_start_bit, lane_end_bit - lane_start_bit))
+
+        return segments
 
     def _bit_hidden(self, bit_pos):
         for start, end in getattr(self, 'hidden_array_ranges', []):

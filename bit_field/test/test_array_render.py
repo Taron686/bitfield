@@ -171,6 +171,51 @@ def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
     assert lane4_coords[3][0] == pytest.approx(0)
 
 
+def test_hidden_array_draws_boundary_for_following_fields():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {
+            'array': 48,
+            'name': 't dolore',
+            'type': '#B0BEC5',
+            'hide_lines': True,
+            'gap_fill': '#B0BEC5',
+        },
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    lines = []
+
+    def collect_lines(node):
+        if isinstance(node, list):
+            if node and node[0] == 'line':
+                lines.append(node[1])
+            for child in node[1:]:
+                collect_lines(child)
+
+    collect_lines(jsonml)
+
+    horizontals = [
+        attrs for attrs in lines
+        if attrs.get('y1', 0) == attrs.get('y2', 0)
+    ]
+
+    step = renderer.hspace / renderer.mod
+    trailing_segments = [
+        attrs for attrs in horizontals
+        if 'x1' in attrs
+        and attrs.get('x1') == pytest.approx(step * 16)
+        and attrs.get('x2') == pytest.approx(renderer.hspace)
+        and attrs.get('y1', 0) == pytest.approx(0)
+    ]
+
+    assert trailing_segments, 'expected a horizontal boundary after the hidden array'
+
+
 def test_array_text_aligns_to_first_lane_when_partial():
     reg = [
         {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
