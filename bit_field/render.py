@@ -727,9 +727,17 @@ class Renderer(object):
                         background_fill = e.get('gap_fill')
                 if background_fill is not None:
                     # use raw coordinates so the background reaches the lane boundaries
+                    overlap = 0.0
+                    if end_lane > start_lane:
+                        overlap = min(self.vlane * 0.05, 0.5)
                     for lane_idx in range(start_lane, end_lane + 1):
                         lane_top = base_y + self.vlane * lane_idx
                         lane_bottom = base_y + self.vlane * (lane_idx + 1)
+                        if overlap:
+                            if lane_idx > start_lane:
+                                lane_top -= overlap
+                            if lane_idx < end_lane:
+                                lane_bottom += overlap
                         left = x1_raw if lane_idx == start_lane else 0
                         if lane_idx == end_lane:
                             right = x2_raw

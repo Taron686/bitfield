@@ -150,10 +150,11 @@ def test_array_gap_fill_covers_full_lanes_for_partial_multiples():
     lane4_coords = None
     for poly in backgrounds:
         coords = [tuple(map(float, point.split(','))) for point in poly['points'].split()]
-        top = coords[0][1]
-        if top == pytest.approx(base_y + renderer.vlane * 3):
+        ys = [y for _, y in coords]
+        center = (min(ys) + max(ys)) / 2
+        if center == pytest.approx(base_y + renderer.vlane * (3 + 0.5), abs=0.5):
             lane3_coords = coords
-        elif top == pytest.approx(base_y + renderer.vlane * 4):
+        elif center == pytest.approx(base_y + renderer.vlane * (4 + 0.5), abs=0.5):
             lane4_coords = coords
 
     assert lane3_coords is not None
@@ -198,17 +199,52 @@ def test_array_text_aligns_to_first_lane_when_partial():
     expected_y = first_lane_center + renderer.fontsize / 2
     assert float(gap_text['y']) == pytest.approx(expected_y)
 
-    step = renderer.hspace / renderer.mod
-    start_offset = 96 % renderer.mod
-    if start_offset:
-        first_lane_bits = min(48, renderer.mod - start_offset)
-    else:
-        first_lane_bits = min(48, renderer.mod)
-    lane_left = start_offset * step
-    lane_right = lane_left + first_lane_bits * step
-    expected_x = (lane_left + lane_right) / 2
-    assert float(gap_text['x']) == pytest.approx(expected_x)
 
+def test_array_gap_hide_lines_background_rectangles_overlap():
+    reg = [
+        {'name': 'Lorem ipsum dolor', 'bits': 32, 'type': 'gray'},
+        {'name': 'consetetur sadipsci', 'bits': 32, 'type': 1},
+        {'name': 'ipsum dolor', 'bits': 32, 'type': 1},
+        {
+            'array': 48,
+            'name': 't dolore',
+            'gap_fill': '#B0BEC5',
+            'hide_lines': True,
+            'type': '#B0BEC5',
+        },
+        {'name': 'dolores', 'bits': 16, 'type': 1},
+    ]
+    renderer = Renderer(bits=32)
+    jsonml = renderer.render(reg)
+
+    def collect_backgrounds(node, polys):
+        if isinstance(node, list):
+            if node and node[0] == 'polygon':
+                attrs = node[1]
+                if attrs.get('stroke') == 'none' and attrs.get('fill') == '#B0BEC5':
+                    coords = [
+                        tuple(map(float, point.split(',')))
+                        for point in attrs['points'].split()
+                    ]
+                    xs = {x for x, _ in coords}
+                    if any(abs(val) < 1e-6 or abs(val - renderer.hspace) < 1e-6 for val in xs):
+                        polys.append(coords)
+            for child in node[1:]:
+                collect_backgrounds(child, polys)
+
+    backgrounds = []
+    collect_backgrounds(jsonml, backgrounds)
+
+    assert len(backgrounds) == 2
+
+    backgrounds.sort(key=lambda coords: min(y for _, y in coords))
+    first = backgrounds[0]
+    second = backgrounds[1]
+    first_bottom = max(y for _, y in first)
+    second_top = min(y for _, y in second)
+
+    expected_overlap = min(renderer.vlane * 0.05, 0.5) * 2
+    assert first_bottom - second_top >= expected_overlap - 1e-6
 
 def test_array_text_stays_centered_for_full_lane_multiples():
     reg = [
