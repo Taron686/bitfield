@@ -3,6 +3,11 @@ import colorsys
 import math
 import string
 
+import uuid
+
+def generate_unique_marker_id(base="arrow"):
+    return f"{base}-{uuid.uuid4().hex[:8]}"
+
 DEFAULT_TYPE_COLOR = "rgb(229, 229, 229)"
 
 
@@ -191,7 +196,7 @@ class Renderer(object):
         return _type_color_value(value, self.type_overrides)
 
     def type_style(self, value):
-        return ';fill:' + self.type_color(value)
+        return 'fill:' + self.type_color(value)
 
     def _extract_label_lines(self, desc):
         collected = []
@@ -400,10 +405,13 @@ class Renderer(object):
             'height': height,
             'viewBox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
         }]
+        
+        self.arrow_id = generate_unique_marker_id('arrow')
+        self.arrow_jump_id = generate_unique_marker_id('arrow-jump-head')
 
         arrow_def = ['defs', {},
                      ['marker', {
-                         'id': 'arrow',
+                         'id': self.arrow_id,
                          'markerWidth': 10,
                          'markerHeight': 6,
                          'refX': 10,
@@ -417,7 +425,7 @@ class Renderer(object):
                       }]
                      ],
                      ['marker', {
-                         'id': 'arrow-jump-head',
+                         'id': self.arrow_jump_id,
                          'markerWidth': 10,
                          'markerHeight': 6,
                          'refX': 0,
@@ -597,8 +605,8 @@ class Renderer(object):
                 'y1': top_line_y,
                 'x2': left + self.cage_width/2,
                 'y2': bottom_y,
-                'marker-start': 'url(#arrow)',
-                'marker-end': 'url(#arrow)'
+                'marker-start': f'url(#{self.arrow_id})',
+                'marker-end': f'url(#{self.arrow_id})'
             }],
         ]
 
@@ -664,7 +672,7 @@ class Renderer(object):
                 'stroke': 'black',
                 'stroke-width': stroke_width,
                 'fill': 'none',
-                'marker-end': 'url(#arrow-jump-head)'
+                'marker-end': f'url(#{self.arrow_jump_id})'
             }]
             group.append(path)
 
@@ -681,7 +689,7 @@ class Renderer(object):
                 'width': 12,
                 'height': 12,
                 'fill': self.type_color(value),
-                'style': 'stroke:#000; stroke-width:' + str(self.stroke_width) + ';' + self.type_style(value)
+                #'style': 'stroke:#000; stroke-width:' + str(self.stroke_width) + ';' + self.type_style(value)
             }])
             x += square_padding
             items.append(['text', {
@@ -1209,7 +1217,7 @@ class Renderer(object):
             if 'name' not in e or e['type'] is not None:
                 style = self.type_style(e['type'])
                 blanks.append(['rect', {
-                    'style': style,
+                    #'style': style,
                     'x': step * (lsb_pos if self.vflip else msb_pos),
                     'y': self.stroke_width / 2,
                     'width': step * (msbm - lsbm + 1),
