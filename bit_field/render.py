@@ -11,7 +11,7 @@ def t(x, y):
 
 
 def typeStyle(t):
-    return ';fill:' + typeColor(t)
+    return 'fill:' + typeColor(t)
 
 
 def _normalize_color(color):
