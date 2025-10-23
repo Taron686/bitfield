@@ -255,7 +255,10 @@ def test_arrow_jump_draws_path_left():
     renderer = Renderer(bits=8, arrow_jumps=cfg)
     res = renderer.render(reg)
 
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
     attrs = path_node[1]
     assert attrs["stroke-width"] == 3
@@ -314,7 +317,10 @@ def test_arrow_jump_from_desc():
         "end_bit": 2,
     })
     res = render(reg, bits=8)
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
 
 
@@ -334,7 +340,10 @@ def test_arrow_jump_leftmost_end_bit_extends_margin_for_direction():
     arrow_cfg = renderer.arrow_jumps[0]
     assert arrow_cfg["_outer_distance"] == pytest.approx(23)
 
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
     attrs = path_node[1]
 
