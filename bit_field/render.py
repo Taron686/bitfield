@@ -397,13 +397,12 @@ class Renderer(object):
                 right_margin += 5
 
         canvas_width = self.hspace + left_margin + right_margin
-        view_min_x = -left_margin
 
         res = ['svg', {
             'xmlns': 'http://www.w3.org/2000/svg',
             'width': canvas_width,
             'height': height,
-            'viewBox': ' '.join(str(x) for x in [view_min_x, 0, canvas_width, height])
+            'viewBox': ' '.join(str(x) for x in [0, 0, canvas_width, height])
         }]
         
         self.arrow_id = generate_unique_marker_id('arrow')
@@ -436,16 +435,21 @@ class Renderer(object):
                       ['path', {
                           'd': 'M0,0 L10,3 L0,6 Z',
                           'fill': 'black'
-                      }]
-                     ]]
+                     }]
+                    ]]
 
         res.append(arrow_def)
 
+        content_group_attrs = {}
+        if left_margin:
+            content_group_attrs['transform'] = t(left_margin, 0)
+        content_group = ['g', content_group_attrs]
+
         if self.legend:
-            res.append(self.legend_items())
+            content_group.append(self.legend_items())
 
         # draw array gaps (unknown length fields)
-        res.append(self.array_gaps(desc))
+        content_group.append(self.array_gaps(desc))
 
         for i in range(0, self.lanes):
             if self.hflip:
@@ -453,14 +457,15 @@ class Renderer(object):
             else:
                 self.lane_index = self.lanes - i - 1
             self.index = i
-            res.append(self.lane(desc))
+            content_group.append(self.lane(desc))
         if self.label_lines is not None:
             for cfg in self.label_lines:
-                res.append(self._label_lines_element(cfg))
+                content_group.append(self._label_lines_element(cfg))
         if self.arrow_jumps:
             arrow_group = self._arrow_jump_elements()
             if arrow_group is not None:
-                res.append(arrow_group)
+                content_group.append(arrow_group)
+        res.append(content_group)
         return res
 
     def _validate_label_lines(self):
