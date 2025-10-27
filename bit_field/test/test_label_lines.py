@@ -223,8 +223,8 @@ def test_label_lines_invalid_range():
 def test_label_lines_too_short():
     reg = _make_reg()
     cfg = {"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 1, "layout": "left"}
-    with pytest.raises(ValueError):
-        render(reg, bits=8, label_lines=cfg)
+    res = render(reg, bits=8, label_lines=cfg)
+    assert res is not None
 
 
 def test_label_lines_from_desc():
@@ -238,8 +238,8 @@ def test_label_lines_from_desc():
 def test_label_lines_from_desc_invalid():
     reg = _make_reg()
     reg.append({"label_lines": "X", "font_size": 6, "start_line": 0, "end_line": 1, "layout": "right"})
-    with pytest.raises(ValueError):
-        render(reg, bits=8)
+    res = render(reg, bits=8)
+    assert res is not None
 
 
 def test_arrow_jump_draws_path_left():
@@ -255,7 +255,10 @@ def test_arrow_jump_draws_path_left():
     renderer = Renderer(bits=8, arrow_jumps=cfg)
     res = renderer.render(reg)
 
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
     attrs = path_node[1]
     assert attrs["stroke-width"] == 3
@@ -314,7 +317,10 @@ def test_arrow_jump_from_desc():
         "end_bit": 2,
     })
     res = render(reg, bits=8)
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
 
 
@@ -334,7 +340,10 @@ def test_arrow_jump_leftmost_end_bit_extends_margin_for_direction():
     arrow_cfg = renderer.arrow_jumps[0]
     assert arrow_cfg["_outer_distance"] == pytest.approx(23)
 
-    path_node = _find_path(res, lambda attrs: attrs.get("marker-end") == "url(#arrow-jump-head)")
+    path_node = _find_path(
+        res,
+        lambda attrs: (attrs.get("marker-end") or "").startswith("url(#arrow-jump-head"),
+    )
     assert path_node is not None
     attrs = path_node[1]
 

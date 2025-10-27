@@ -598,15 +598,28 @@ class Renderer(object):
             'stroke-width': self.stroke_width,
             'fill': 'none'
         },
-            ['line', {'x1': left, 'y1': top_line_y, 'x2': right, 'y2': top_line_y}],
-            ['line', {'x1': left, 'y1': bottom_y, 'x2': right, 'y2': bottom_y}],
+            ['line', {
+                'x1': left,
+                'y1': top_line_y,
+                'x2': right,
+                'y2': top_line_y,
+                'vector-effect': 'non-scaling-stroke'
+            }],
+            ['line', {
+                'x1': left,
+                'y1': bottom_y,
+                'x2': right,
+                'y2': bottom_y,
+                'vector-effect': 'non-scaling-stroke'
+            }],
             ['line', {
                 'x1': left + self.cage_width/2,
                 'y1': top_line_y,
                 'x2': left + self.cage_width/2,
                 'y2': bottom_y,
                 'marker-start': f'url(#{self.arrow_id})',
-                'marker-end': f'url(#{self.arrow_id})'
+                'marker-end': f'url(#{self.arrow_id})',
+                'vector-effect': 'non-scaling-stroke'
             }],
         ]
 
@@ -672,7 +685,8 @@ class Renderer(object):
                 'stroke': 'black',
                 'stroke-width': stroke_width,
                 'fill': 'none',
-                'marker-end': f'url(#{self.arrow_jump_id})'
+                'marker-end': f'url(#{self.arrow_jump_id})',
+                'vector-effect': 'non-scaling-stroke'
             }]
             group.append(path)
 
@@ -814,6 +828,7 @@ class Renderer(object):
                                     'stroke': 'black',
                                     'stroke-width': self.stroke_width,
                                     'stroke-linecap': 'butt',
+                                    'vector-effect': 'non-scaling-stroke',
                                 }])
                 if show_lines:
                     grp.append(['line', {
@@ -822,6 +837,7 @@ class Renderer(object):
                         'x2': x2,
                         'y2': bottom_y,
                         'stroke': color,
+                        'vector-effect': 'non-scaling-stroke',
                     }])
                     grp.append(['line', {
                         'x1': x1 + width,
@@ -829,6 +845,7 @@ class Renderer(object):
                         'x2': x2_outer,
                         'y2': bottom_y,
                         'stroke': color,
+                        'vector-effect': 'non-scaling-stroke',
                     }])
                 if 'name' in e:
                     name = str(e['name'])
@@ -1268,6 +1285,7 @@ class Renderer(object):
             'x2': end_x,
             'y1': y,
             'y2': y,
+            'vector-effect': 'non-scaling-stroke'
         }
         res.append(att)
         return res
@@ -1285,6 +1303,7 @@ class Renderer(object):
             att['y2'] = len
         if stroke:
             att['stroke'] = stroke
+        att['vector-effect'] = 'non-scaling-stroke'
         res.append(att)
         return res
 
