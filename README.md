@@ -7,25 +7,26 @@ available as a Sphinx extension: [sphinxcontrib-bitfield](https://github.com/Art
 
 ## Features
 
-* Render register/bit‑field layouts to SVG
-* Optional [JSON5](https://json5.org/) input support
-* Per-field types with predefined colours or explicit RGB values
+* Render register/bit-field layouts to SVG from simple `bits`/`name` dictionaries
+* Optional `[JSON5]` input support via the `json5` extra
+* Per-field `type` descriptors with predefined colours or explicit RGB values
 * Unknown-length gaps using `array` descriptors
-* Legends explaining field types
-* Per-bit attribute display and automatic name trimming
-* Vertical lane labels for grouping fields across lanes
-* Horizontal/vertical flipping, compact layout, and uneven lane widths
+* Cross-lane connector support through `arrow_jumps`
+* Legends driven by the `legend` mapping or `config.types` overrides
+* Per-bit attribute display with the `attr` list, only usable when `compact` = false is
+* Vertical lane labels defined via `label_lines`, `start_line`/`end_line`, `layout`, and `angle`
+* Layout controls through `compact`, `uneven`, `hflip`, `vflip`, `lanes`, and `bits`
 
 ## Installation
 
 ```sh
-currently not on pip
+pip install bitfield-extended
 ```
 
 To install with JSON5 support:
 
 ```sh
-currently not on pip
+pip install bitfield-extended[JSON5]
 ```
 
 ## Library usage
@@ -38,10 +39,10 @@ from bit_field import render, jsonml_stringify
 reg = [
     {"name": "IPO",   "bits": 8, "attr": "RO"},
     {"bits": 7},
-    {"name": "BRK",   "bits": 5, "attr": [0b1011, "RW"], "type": 4},
-    {"name": "CPK",   "bits": 1, "type": [120, 180, 255]},  # custom colour
-    {"name": "Clear", "bits": 3},
-    {"array": 8, "type": 4, "name": "gap"},                  # unknown-length field
+    {"name": "BRK",   "bits": 5, "attr": ["0b1011", "RW"], "type": 4},
+    {"name": "CPK",   "bits": 5, "type": [120, 180, 255]},  # custom colour
+    {"name": "Clear", "bits": 7},
+    {"array": 64, "type": 4, "name": "gap", "gap_width":2 , "gap_fill": "black"}, # unknown-length field
     {"bits": 8},
 ]
 
@@ -49,26 +50,87 @@ jsonml = render(reg, bits=16, legend={"Status": 2, "Control": 4})
 svg = jsonml_stringify(jsonml)
 # <svg...>
 ```
+### attr using
+Example
+```json
+{ "attr": "RW" }
+{ "name": "IPO",   "bits": 4, "attr": ["0b1011", "RW"] }    // bit labels for each bit     
+{ "attr": [["Ctrl", 90], "RW"] } // rotated text plus normal text
+```
 
 ### Vertical lane labels
 
 Add horizontal labels spanning multiple lanes by including objects with a
 `"label_lines"` key in your descriptor list. Newline characters (`\n`) create
 multiple lines. The optional `angle` parameter rotates the text around its
-centre. Set `"Reserved": true` to draw the connecting arrow a little above the
+centre. Set `"reserved": true` to draw the connecting arrow a little above the
 start line when you need to indicate a reserved region:
+
+**Supported keys for a label entry**
+
+- `label_lines` *(required)* – string or list of strings to show; `\n` makes multiple lines.
+- `font_size` *(required)* – text size in px; defaults to renderer `fontsize` when labels are provided globally.
+- `start_line`, `end_line` *(required)* – zero-based lane indices defining the vertical span; `end_line` must be ≥ `start_line + 1`.
+- `layout` *(required)* – `left` or `right`, defining which side of the diagram hosts the label.
+- `angle` – rotate the text in degrees; vertical text automatically uses extra spacing.
+- `reserved` – boolean; if `true` the arrow sits slightly above the bracket to highlight reserved blocks.
+- Internal `_offset` and `_margin` are assigned automatically when labels overlap; no need to set them manually.
 
 ```json
 [
   {"bits": 8, "name": "data"},
   {"label_lines": "Line1\nLine2", "font_size": 6, "start_line": 0, "end_line": 3, "layout": "right", "angle": 30},
-  {"label_lines": "Reserved", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right", "Reserved": true},
+  {"label_lines": "reserved", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right", "reserved": true},
   {"label_lines": "Other", "font_size": 6, "start_line": 4, "end_line": 7, "layout": "right"}
 ]
 ```
 
 Each label is drawn outside the bitfield on the requested side. Labels are
-rendered only if `end_line - start_line >= 2`.
+rendered only if `end_line - start_line < 0`.
+
+### Arrow-head jumps
+
+Route cross-lane references with dedicated arrow-head jump descriptors.
+They run vertically from a `start_line`, step through two intermediate
+lanes, then end on the requested bit column with an arrow head pointing to
+the destination field. Arrow-head length automatically scales with the
+`stroke_width`, so thicker lines give a more pronounced head without any
+additional parameters.
+
+You can supply arrow jumps either via the `arrow_jumps` argument to
+`render()` or by embedding objects that contain an `"arrow_jump"` key inside
+your descriptor list (they are stripped out before field rendering).
+
+**Supported keys for an arrow-head descriptor**
+
+- `arrow_jump` *(required)* – bit index in the source lane that the arrow leaves from.
+- `start_line` *(required)* – zero-based lane where the arrow starts.
+- `jump_to_first`, `jump_to_second` *(required)* – intermediate lanes that the two vertical legs run through before the final horizontal segment.
+- `end_bit` *(required)* – bit index in the target lane that the arrow head points to.
+- `layout` *(required)* – `left` or `right`, deciding on which side of the diagram the detour is routed.
+- `stroke_width` – thickness of the path; also scales the arrow head length.
+- `outer_distance` – minimum spacing, in SVG units, between the diagram edge and the outer vertical run (default `10`).
+- `max_outer_distance` – hard cap for automatic margin adjustments when the arrow head would overlap the target bit (default `25`).
+
+```python
+reg = [
+  {"name": "CTRL", "bits": 8},
+  {"name": "DATA", "bits": 8},
+  {"name": "STATUS", "bits": 8},
+]
+
+arrow = {
+  "arrow_jump": 2,
+  "start_line": 0,
+  "jump_to_first": 1,
+  "jump_to_second": 2,
+  "end_bit": 6,
+  "layout": "right",
+  "stroke_width": 4,
+}
+
+svg = jsonml_stringify(render(reg, bits=8, arrow_jumps=arrow, compact=True))
+```
 
 ### Array gaps
 
@@ -76,6 +138,17 @@ Use an `{"array": length}` descriptor to draw a wedge representing an
 unknown-length field or gap. The optional `type` and `name` keys colour and
 label the gap, and `gap_width` adjusts the wedge width as a fraction of a
 single bit (default `0.5`):
+
+**Supported keys for an array descriptor**
+
+- `array` *(required)* – number of bits covered by the gap; can also be a list where the last entry is interpreted as the length.
+- `name` – label shown inside the wedge.
+- `type` – numeric ID or RGB triplet used to colour both the wedge border and its background fill; overrides `fill`/`gap_fill`.
+- `gap_width` – width multiplier relative to a single bit cell; controls the wedge thickness (default `0.5`).
+- `gap_fill` – colour of the wedge polygon; defaults to `fill` or white if omitted.
+- `fill` – legacy alias for `gap_fill`; used only when `gap_fill` is absent.
+- `hide_lines` – boolean; if `true`, suppresses the outline so the gap blends with adjacent fields. Hidden gaps still keep the final lane boundary for following fields.
+- `font_size` – allows matching text height to neighbouring fields when a `name` is provided.
 
 ```python
 reg = [
@@ -143,17 +216,18 @@ input                           input JSON filename (required)
     { "array": 64, "name": "et accusa","type": 3},
 
     { "name": "et accusa", "bits": 32 , "type": 4},
-    { "array": 64, "type": 4, "name": " accu","font_size": 12},
+    { "array": 64, "type": 4, "name": " accu","font_size": 12, "gap_width": 3,"gap_fill":"red", "hide_lines": true},
 
     {"label_lines": "Line Cover1", "font_size": 12, "start_line": 0, "end_line": 3, "layout": "left"},
     {"label_lines": "Line Cover2", "font_size": 12, "start_line": 4, "end_line": 4, "layout": "left"},
-    {"label_lines": "Length", "font_size": 12, "start_line": 5, "end_line": 8, "layout": "right"},
-    {"label_lines": "Length", "font_size": 12, "start_line": 2, "end_line": 4, "layout": "right"}
+    {"label_lines": "Length", "font_size": 12, "start_line": 5, "end_line": 8, "layout": "right", "reserved": true, "angle":-90},
+    {"label_lines": "Length", "font_size": 12, "start_line": 2, "end_line": 4, "layout": "right", "angle":90},
+    {"arrow_jump": 2,"start_line": 0,"jump_to_first": 1,"jump_to_second": 2,"end_bit": 6,"layout": "left","stroke_width": 1}
     
 ]
 ```
 
-Add a `types` mapping inside `config` to override the colours associated with
+Add a `types` mapping inside `config` to override the colors associated with
 field types and to use human-readable labels in your payload:
 
 ```json

@@ -489,8 +489,8 @@ class Renderer(object):
                 raise ValueError('label_lines layout must be "left" or "right"')
             if 'angle' in cfg and not isinstance(cfg['angle'], (int, float)):
                 raise ValueError('label_lines angle must be a number')
-            if 'Reserved' in cfg and not isinstance(cfg['Reserved'], bool):
-                raise ValueError('label_lines Reserved must be a boolean')
+            if 'reserved' in cfg and not isinstance(cfg['reserved'], bool):
+                raise ValueError('label_lines reserved must be a boolean')
 
     def _validate_arrow_jumps(self):
         required = ['arrow_jump', 'start_line', 'jump_to_first', 'jump_to_second', 'end_bit', 'layout']
@@ -570,7 +570,7 @@ class Renderer(object):
             anchor = 'middle'
             if not is_vertical:
                 text_x += (-text_length / 2) if layout == 'left' else (text_length / 2)
-        reserved_offset = self.vlane * 0.2 if cfg.get('Reserved') else 0
+        reserved_offset = self.vlane * 0.2 if cfg.get('reserved') else 0
         text_attrs = {
             'x': text_x,
             'y': mid_y,
@@ -1042,6 +1042,18 @@ class Renderer(object):
             and self._is_numeric_angle(value[1])
         )
 
+    @staticmethod
+    def _bitmask_from_string(value):
+        if not isinstance(value, str):
+            return None
+        text = value.strip().lower()
+        if not text.startswith('0b') or len(text) <= 2:
+            return None
+        bits_part = text[2:].replace('_', '')
+        if not bits_part or any(ch not in '01' for ch in bits_part):
+            return None
+        return int(bits_part, 2)
+
     def _estimate_text_width(self, text):
         text = str(text)
         if not text:
@@ -1088,12 +1100,21 @@ class Renderer(object):
                     'y': self.fontsize,
                 })
             else:
-                entries.append({
-                    'kind': 'text',
-                    'text': str(item),
-                    'spacing': self.fontsize,
-                    'y': self.fontsize,
-                })
+                bitmask = self._bitmask_from_string(item)
+                if bitmask is not None:
+                    entries.append({
+                        'kind': 'bits',
+                        'value': bitmask,
+                        'spacing': self.fontsize,
+                        'y': self.fontsize,
+                    })
+                else:
+                    entries.append({
+                        'kind': 'text',
+                        'text': str(item),
+                        'spacing': self.fontsize,
+                        'y': self.fontsize,
+                    })
 
         return entries
 
